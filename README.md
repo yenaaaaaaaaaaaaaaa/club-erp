@@ -7,6 +7,10 @@ University club management platform with RBAC, attendance, and financial trackin
 - DB: PostgreSQL (Supabase)
 - Auth: JWT
 
+## Documentation
+- ERD: [ERDCloud](https://www.erdcloud.com/d/faZvhySPaSoXtv24j)
+- API: 추후 Swagger 링크 추가 예정
+- 
 ## Getting Started
 (추후 작성)
 
