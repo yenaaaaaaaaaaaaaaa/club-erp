@@ -2,15 +2,16 @@
 University club management platform with RBAC, attendance, and financial tracking
 
 ## Tech Stack
-- Frontend: React
-- Backend: Spring Boot, JPA, QueryDSL
-- DB: PostgreSQL (Supabase)
-- Auth: JWT
+- Frontend: React 18, Vite, Tailwind CSS, Zustand, React Router v6
+- Backend: Supabase (PostgreSQL, Auth, Storage, Edge Functions, RLS)
+- Deploy: Vercel (Frontend), GitHub Actions (CI/CD)
+- Editor: Tiptap (공지 에디터)
+- Calendar: FullCalendar
 
 ## Documentation
 - ERD: [ERDCloud](https://www.erdcloud.com/d/faZvhySPaSoXtv24j)
 - API: 추후 Swagger 링크 추가 예정
-- 
+
 ## Getting Started
 (추후 작성)
 
@@ -30,9 +31,9 @@ University club management platform with RBAC, attendance, and financial trackin
 type: 작업 내용
 
 ### Example
-- feat: 회원 등록 API 구현
+- feat: 회원 등록 기능 구현
 - fix: 출석 상태 저장 오류 수정
 - design: 대시보드 레이아웃 수정
 - refactor: 회원 서비스 계층 분리
-- chore: Docker 설정 추가
+- chore: GitHub Actions 설정 추가
 - docs: README 커밋 컨벤션 추가
