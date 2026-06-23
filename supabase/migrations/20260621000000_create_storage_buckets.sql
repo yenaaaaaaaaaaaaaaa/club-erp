@@ -14,7 +14,6 @@ VALUES
       'application/pdf', 
       'image/png', 
       'image/jpeg', 
-      'image/jpg', 
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ]
   ),
@@ -26,8 +25,7 @@ VALUES
     ARRAY[
       'application/pdf', 
       'image/png', 
-      'image/jpeg', 
-      'image/jpg'
+      'image/jpeg'
     ]
   )
 ON CONFLICT (id) DO UPDATE SET
@@ -44,10 +42,11 @@ ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
 -- 클라이언트(anon key)에서 signed URL을 생성하거나 파일을 읽으려면 SELECT 권한 정책이 필요합니다.
 
--- 1. 공지사항 첨부파일 (notice-files): 누구나 읽기 가능 정책 (조회)
-DROP POLICY IF EXISTS "Allow public select for notice-files" ON storage.objects;
-CREATE POLICY "Allow public select for notice-files"
+-- 1. 공지사항 첨부파일 (notice-files): 로그인한(authenticated) 사용자만 읽기 가능 정책 (조회)
+DROP POLICY IF EXISTS "Allow authenticated select for notice-files" ON storage.objects;
+CREATE POLICY "Allow authenticated select for notice-files"
 ON storage.objects FOR SELECT
+TO authenticated
 USING (bucket_id = 'notice-files');
 
 -- 2. 재정 증빙 파일 (finance-files): 로그인한(authenticated) 사용자만 읽기 가능 정책 (조회)
