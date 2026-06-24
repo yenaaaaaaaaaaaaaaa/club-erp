@@ -55,3 +55,5 @@ CREATE POLICY "Allow authenticated select for finance-files"
 ON storage.objects FOR SELECT
 TO authenticated
 USING (bucket_id = 'finance-files');
+
+-- TODO: INSERT/DELETE 정책은 B-xx에서 추가 예정
