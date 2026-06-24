@@ -38,7 +38,8 @@ ON CONFLICT (id) DO UPDATE SET
 -- =========================================================================
 
 -- storage.objects 테이블에 명시적으로 RLS를 활성화합니다.
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- (Supabase 클라우드에서는 기본적으로 켜져 있으며, 권한 문제로 ALTER TABLE이 실패하므로 주석 처리)
+-- ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
 -- 클라이언트(anon key)에서 signed URL을 생성하거나 파일을 읽으려면 SELECT 권한 정책이 필요합니다.
 
