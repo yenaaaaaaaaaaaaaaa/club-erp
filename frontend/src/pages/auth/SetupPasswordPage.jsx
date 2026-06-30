@@ -18,7 +18,7 @@ export default function SetupPasswordPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       // 이미 인증(초대 토큰) 상태인지 확인
       if (!session && !window.location.hash.includes('access_token')) {
-        setErrorMsg('유효하지 않은 접근이거나 링크가 만료되었습니다. 관리자에게 재발송을 요청하세요.')
+        setErrorMsg('초대 링크가 만료되었습니다. 관리자에게 재발송을 요청하세요')
       }
     })
   }, [])
@@ -61,7 +61,7 @@ export default function SetupPasswordPage() {
 
       if (!updateData || updateData.length === 0) {
         // 업데이트된 row가 0건이라면 이미 누군가(혹은 본인) 연결했거나, 초대된 이메일이 아님
-        throw new Error('이미 연결된 계정이거나, 관리자로부터 등록되지 않은 이메일입니다. 관리자에게 문의하세요.')
+        throw new Error('이미 연결된 계정입니다. 관리자에게 문의하세요')
       }
 
       // 모든 과정 성공 시 대시보드로 이동
