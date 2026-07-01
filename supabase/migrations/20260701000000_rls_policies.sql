@@ -103,6 +103,16 @@ CREATE POLICY "members_select" ON members
 CREATE POLICY "members_insert" ON members
   FOR INSERT WITH CHECK (can_manage_members());
 
+-- 초대받은 임원이 최초 비밀번호 설정 시 자신의 user_id를 연결하기 위한 정책
+-- user_id가 null인 행에 한해, 이메일이 일치하는 경우에만 자기 자신의 uid로 업데이트 허용
+CREATE POLICY "members_link_self" ON members
+  FOR UPDATE
+  USING (
+    user_id IS NULL
+    AND email = (SELECT email FROM auth.users WHERE id = auth.uid())
+  )
+  WITH CHECK (user_id = auth.uid());
+
 CREATE POLICY "members_update" ON members
   FOR UPDATE USING (can_manage_members());
 

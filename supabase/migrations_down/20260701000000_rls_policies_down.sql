@@ -10,6 +10,7 @@ DROP POLICY IF EXISTS "roles_delete" ON roles;
 
 DROP POLICY IF EXISTS "members_select" ON members;
 DROP POLICY IF EXISTS "members_insert" ON members;
+DROP POLICY IF EXISTS "members_link_self" ON members;
 DROP POLICY IF EXISTS "members_update" ON members;
 DROP POLICY IF EXISTS "members_delete" ON members;
 
