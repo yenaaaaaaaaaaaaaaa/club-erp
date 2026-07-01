@@ -49,19 +49,34 @@ export default function SetupPasswordPage() {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) throw new Error('유저 정보를 가져올 수 없습니다.')
 
-      // 3. members 테이블에 user_id 연결 (단, 기존에 연결되지 않은 계정만)
+      // 3. members 테이블에 user_id 연결 (초대 플로우: user_id가 null인 경우만)
       const { error: linkError, data: updateData } = await supabase
         .from('members')
         .update({ user_id: user.id })
         .eq('email', user.email)
         .is('user_id', null)
-        .select() // 업데이트 된 Row 반환
+        .select()
 
       if (linkError) throw linkError
 
       if (!updateData || updateData.length === 0) {
-        // 업데이트된 row가 0건이라면 이미 누군가(혹은 본인) 연결했거나, 초대된 이메일이 아님
-        throw new Error('이미 연결된 계정입니다. 관리자에게 문의하세요')
+        // user_id가 이미 설정된 경우 → 비밀번호 재설정 플로우
+        // 이 계정이 실제로 members에 등록된 계정인지 확인
+        const { data: member, error: memberError } = await supabase
+          .from('members')
+          .select('user_id')
+          .eq('email', user.email)
+          .single()
+
+        if (memberError || !member) {
+          throw new Error('등록되지 않은 계정입니다. 관리자에게 문의하세요.')
+        }
+
+        if (member.user_id !== user.id) {
+          throw new Error('이미 다른 계정으로 연결된 이메일입니다. 관리자에게 문의하세요.')
+        }
+
+        // 본인 계정으로 이미 연결되어 있음 → 비밀번호 재설정 성공
       }
 
       // 모든 과정 성공 시 대시보드로 이동
