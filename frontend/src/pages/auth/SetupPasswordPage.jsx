@@ -50,7 +50,7 @@ export default function SetupPasswordPage() {
       if (userError || !user) throw new Error('유저 정보를 가져올 수 없습니다.')
 
       // 3. members 테이블에 user_id 연결 (단, 기존에 연결되지 않은 계정만)
-      const { error: linkError, data: updateData, count } = await supabase
+      const { error: linkError, data: updateData } = await supabase
         .from('members')
         .update({ user_id: user.id })
         .eq('email', user.email)

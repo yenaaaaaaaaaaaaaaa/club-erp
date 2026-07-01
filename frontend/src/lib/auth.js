@@ -63,9 +63,7 @@ export const authService = {
     })
     
     if (error) {
-      if (error.message.includes('User not found')) {
-        throw new Error('가입되지 않은 이메일입니다.')
-      } else if (error.message.includes('rate limit')) {
+      if (error.message.includes('rate limit')) {
         throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.')
       }
       throw new Error('비밀번호 재설정 이메일 발송에 실패했습니다. 관리자에게 문의하세요.')
