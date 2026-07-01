@@ -109,7 +109,7 @@ CREATE POLICY "members_link_self" ON members
   FOR UPDATE
   USING (
     user_id IS NULL
-    AND email = (SELECT email FROM auth.users WHERE id = auth.uid())
+    AND email = (auth.jwt() ->> 'email')
   )
   WITH CHECK (user_id = auth.uid());
 
