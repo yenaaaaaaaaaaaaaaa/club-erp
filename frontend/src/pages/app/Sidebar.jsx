@@ -51,7 +51,7 @@ export default function Sidebar() {
 
   return (
     <aside className="w-[280px] min-h-screen border-r border-gray-200 flex flex-col bg-white">
-      <div className="px-6 py-5 border-b border-gray-100 cursor-pointer hover:opacity-70 transition" onClick={() => navigate('/')}>
+      <div className="px-6 py-5 border-b border-gray-100 cursor-pointer hover:opacity-70 transition" onClick={() => navigate('/app/dashboard')}>
         <p className="font-bold text-base leading-tight">CLUB-ERP</p>
         <p className="text-xs text-gray-400 mt-0.5">동아리 운영 관리 시스템</p>
       </div>
