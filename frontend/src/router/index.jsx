@@ -40,7 +40,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/app/dashboard" replace /> },
-      { path: 'dashboard', element: <div>대시보드</div> },
+      { path: 'dashboard', element: <div>바보김용원</div> },
       {
         path: 'members',
         element: (
