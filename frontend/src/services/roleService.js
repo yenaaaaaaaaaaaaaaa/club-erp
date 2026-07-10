@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { query } from '@/lib/supabaseQuery'
 
 export const roleService = {
@@ -13,7 +12,7 @@ export const roleService = {
   // 2. 역할 단건 조회 (보유 임원 포함)
   async getById(id) {
     return query(() =>
-      supabase.from('roles').select('*, members(*)').eq('id', id).single()
+      supabase.from('roles').select('*, members(id, name, student_id, phone, department, role_id)').eq('id', id).single()
     )
   },
 
@@ -50,19 +49,22 @@ export const roleService = {
     const role = await query(() =>
       supabase.from('roles').select('is_president').eq('id', id).single()
     )
-    if (role.is_president) throw new Error('president_role_cannot_be_deleted')
+    if (role.is_president) throw new Error('회장 역할은 삭제할 수 없습니다')
+    await query(() =>
+      supabase.from('members').update({ role_id: null }).eq('role_id', id)
+    )
     return query(() =>
       supabase.from('roles').delete().eq('id', id)
     )
   },
 
-  // 6. 임원 등록 + 초대 메일 발송 (members INSERT 먼저 → 메일 발송, 실패 시 롤백)
+  // 6. 임원 등록 + 초대 메일 발송 (members INSERT 먼저 → Edge Function 호출, 실패 시 롤백)
   async inviteOfficer({ name, student_id, email, role_id }) {
     const member = await query(() =>
       supabase.from('members').insert({ name, student_id, email, role_id }).select('id').single()
     )
-    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${window.location.origin}/auth/setup-password`,
+    const { error } = await supabase.functions.invoke('invite-officer', {
+      body: { email },
     })
     if (error) {
       await supabase.from('members').delete().eq('id', member.id)
