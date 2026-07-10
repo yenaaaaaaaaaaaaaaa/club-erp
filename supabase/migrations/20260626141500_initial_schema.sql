@@ -169,6 +169,12 @@ BEGIN
 
   SELECT id INTO president_role_id FROM roles WHERE is_president = true;
 
+  IF EXISTS (
+    SELECT 1 FROM members WHERE id = new_member_id AND role_id = president_role_id
+  ) THEN
+    RAISE EXCEPTION 'already_president';
+  END IF;
+
   UPDATE members SET role_id = NULL WHERE role_id = president_role_id;
   UPDATE members SET role_id = president_role_id WHERE id = new_member_id;
 END;

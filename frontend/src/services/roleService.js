@@ -41,7 +41,9 @@ export const roleService = {
   async update(id, patch) {
     const ALLOWED_KEYS = ['name', 'description', 'perm_members', 'perm_activities', 'perm_notices', 'perm_calendar', 'perm_finance']
     const fields = Object.fromEntries(
-      Object.entries(patch).filter(([k, v]) => ALLOWED_KEYS.includes(k) && v !== undefined)
+      Object.entries(patch)
+        .filter(([k]) => ALLOWED_KEYS.includes(k))
+        .map(([k, v]) => [k, v === undefined ? null : v])
     )
     if (Object.keys(fields).length === 0) throw new Error('수정할 항목이 없습니다.')
     return query(() =>
@@ -89,21 +91,7 @@ export const roleService = {
     }
   },
 
-  // 7. 역할 부여
-  async assignRole(memberId, roleId) {
-    return query(() =>
-      supabase.from('members').update({ role_id: roleId }).eq('id', memberId)
-    )
-  },
-
-  // 8. 역할 제거
-  async removeRole(memberId) {
-    return query(() =>
-      supabase.from('members').update({ role_id: null }).eq('id', memberId)
-    )
-  },
-
-  // 9. 회장 양도 (RPC 단일 트랜잭션)
+  // 7. 회장 양도 (RPC 단일 트랜잭션)
   async transferPresident(newMemberId) {
     try {
       return await query(() =>
@@ -116,10 +104,4 @@ export const roleService = {
     }
   },
 
-  // 10. 전체 임원 목록 (user_id IS NOT NULL = 초대 수락 완료)
-  async getOfficers() {
-    return query(() =>
-      supabase.from('members').select('*, roles(name)').not('user_id', 'is', null).order('created_at')
-    )
-  },
 }

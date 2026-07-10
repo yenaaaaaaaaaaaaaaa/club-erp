@@ -18,8 +18,7 @@ export const settingsService = {
     }
     return query(() =>
       supabase.from('app_settings')
-        .update({ value: semester.trim() })
-        .eq('key', 'current_semester')
+        .upsert({ key: 'current_semester', value: semester.trim() })
     )
   }
 }
