@@ -18,18 +18,23 @@ export const roleService = {
 
   // 3. 역할 생성 (is_president 강제 false)
   async create({ name, description, perm_members, perm_activities, perm_notices, perm_calendar, perm_finance }) {
-    return query(() =>
-      supabase.from('roles').insert({
-        name,
-        description: description ?? null,
-        is_president: false,
-        perm_members: perm_members ?? false,
-        perm_activities: perm_activities ?? false,
-        perm_notices: perm_notices ?? false,
-        perm_calendar: perm_calendar ?? false,
-        perm_finance: perm_finance ?? false,
-      }).select().single()
-    )
+    try {
+      return await query(() =>
+        supabase.from('roles').insert({
+          name,
+          description: description ?? null,
+          is_president: false,
+          perm_members: perm_members ?? false,
+          perm_activities: perm_activities ?? false,
+          perm_notices: perm_notices ?? false,
+          perm_calendar: perm_calendar ?? false,
+          perm_finance: perm_finance ?? false,
+        }).select().single()
+      )
+    } catch (err) {
+      if (err.code === '23505') throw new Error('이미 존재하는 역할 이름입니다')
+      throw err
+    }
   },
 
   // 4. 역할 수정 (is_president 수정 불가 — 허용 키만 필터링)
@@ -60,14 +65,26 @@ export const roleService = {
 
   // 6. 임원 등록 + 초대 메일 발송 (members INSERT 먼저 → Edge Function 호출, 실패 시 롤백)
   async inviteOfficer({ name, student_id, email, role_id }) {
-    const member = await query(() =>
-      supabase.from('members').insert({ name, student_id, email, role_id }).select('id').single()
-    )
-    const { error } = await supabase.functions.invoke('invite-officer', {
+    let member
+    try {
+      member = await query(() =>
+        supabase.from('members').insert({ name, student_id, email, role_id }).select('id').single()
+      )
+    } catch (err) {
+      if (err.code === '23505') {
+        if (err.message?.includes('email')) throw new Error('이미 초대된 이메일입니다')
+        if (err.message?.includes('student_id')) throw new Error('이미 등록된 학번입니다')
+      }
+      throw err
+    }
+    const { error, data } = await supabase.functions.invoke('invite-officer', {
       body: { email },
     })
-    if (error) {
+    if (error || data?.error) {
       await supabase.from('members').delete().eq('id', member.id)
+      const msg = data?.error ?? ''
+      if (msg.includes('이미 가입')) throw new Error('이미 가입된 이메일입니다')
+      if (msg.includes('이미 초대') || msg.includes('already')) throw new Error('이미 초대된 이메일입니다')
       throw new Error('초대 메일 발송에 실패했습니다.')
     }
   },
@@ -88,15 +105,21 @@ export const roleService = {
 
   // 9. 회장 양도 (RPC 단일 트랜잭션)
   async transferPresident(newMemberId) {
-    return query(() =>
-      supabase.rpc('transfer_president', { new_member_id: newMemberId })
-    )
+    try {
+      return await query(() =>
+        supabase.rpc('transfer_president', { new_member_id: newMemberId })
+      )
+    } catch (err) {
+      if (err.message?.includes('member_not_found')) throw new Error('존재하지 않는 임원입니다')
+      if (err.message?.includes('already_president')) throw new Error('이미 회장입니다')
+      throw new Error('양도 중 오류가 발생했습니다. 다시 시도해 주세요')
+    }
   },
 
   // 10. 전체 임원 목록 (user_id IS NOT NULL = 초대 수락 완료)
   async getOfficers() {
     return query(() =>
-      supabase.from('members').select('*, roles(*)').not('user_id', 'is', null).order('created_at')
+      supabase.from('members').select('*, roles(name)').not('user_id', 'is', null).order('created_at')
     )
   },
 }
