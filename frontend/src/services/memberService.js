@@ -88,8 +88,15 @@ export const memberService = {
       }
     }
     const safeRows = rows.map(({ user_id, role_id, ...rest }) => rest)
-    return query(() =>
-      supabase.from('members').upsert(safeRows, { onConflict: 'student_id' }).select()
-    )
+    try {
+      return await query(() =>
+        supabase.from('members').upsert(safeRows, { onConflict: 'student_id' }).select()
+      )
+    } catch (err) {
+      if (err.code === '23505' && err.message?.includes('email')) {
+        throw new Error('이미 등록된 이메일과 충돌이 발생했습니다')
+      }
+      throw err
+    }
   },
 }
