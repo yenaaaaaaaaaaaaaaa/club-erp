@@ -5,6 +5,7 @@ import LandingPage from '@/pages/landing/LandingPage'
 import SetupPasswordPage from '@/pages/auth/SetupPasswordPage'
 import AppLayout from '@/pages/app/AppLayout'
 import PermissionRoute from '@/pages/app/PermissionRoute'
+import DashboardPage from '@/pages/app/dashboard/DashboardPage'
 
 function PrivateRoute({ children }) {
   const { user, isLoading } = useAuthStore()
@@ -40,7 +41,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/app/dashboard" replace /> },
-      { path: 'dashboard', element: <div>바보김용원</div> },
+      { path: 'dashboard', element: <DashboardPage /> },
       {
         path: 'members',
         element: (
