@@ -156,7 +156,8 @@ export default function PermissionsPage() {
 
   const handleRemoveOfficer = async (id) => {
     try {
-      await memberService.remove(id)
+      const { error, data } = await supabase.functions.invoke('delete-officer', { body: { memberId: id } })
+      if (error || data?.error) throw new Error(data?.error ?? '삭제에 실패했습니다')
       await loadOfficers()
     } catch (err) {
       setInviteError(err.message)
