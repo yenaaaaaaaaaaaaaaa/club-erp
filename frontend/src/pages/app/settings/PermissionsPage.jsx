@@ -48,7 +48,9 @@ export default function PermissionsPage() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRoles()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOfficers()
   }, [loadRoles, loadOfficers])
 
