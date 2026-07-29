@@ -15,7 +15,7 @@ const PERMS = [
 
 export default function PermissionsPage() {
   const navigate = useNavigate()
-  const { clearAuth } = useAuthStore()
+  const { clearAuth, member: currentMember } = useAuthStore()
 
   const [roles, setRoles] = useState([])
   const [selectedRoleId, setSelectedRoleId] = useState(null)
@@ -151,6 +151,15 @@ export default function PermissionsPage() {
     }
   }
 
+  const handleRemoveOfficer = async (id) => {
+    try {
+      await memberService.remove(id)
+      await loadOfficers()
+    } catch (err) {
+      setInviteError(err.message)
+    }
+  }
+
   const handleResend = async (email) => {
     try {
       await roleService.inviteOfficer({ name: '', student_id: `resend_${Date.now()}`, email, role_id: null })
@@ -243,25 +252,36 @@ export default function PermissionsPage() {
                 <p className="text-sm text-gray-500 mb-3">
                   현재 회장: <span className="font-medium text-gray-800">{currentPresidentMember?.name ?? '-'}</span>
                 </p>
-                <div className="flex gap-3 items-start">
-                  <select
-                    value={newPresident}
-                    onChange={(e) => setNewPresident(e.target.value)}
-                    className="flex-1 max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400 text-gray-600"
-                  >
-                    <option value="">양도받을 임원 선택</option>
-                    {transferCandidates.map((o) => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-xs">
+                      <th className="text-left px-4 py-2.5 font-medium">이름</th>
+                      <th className="text-left px-4 py-2.5 font-medium">학번</th>
+                      <th className="text-left px-4 py-2.5 font-medium">현재 역할</th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transferCandidates.filter((o) => o.user_id).map((o) => (
+                      <tr key={o.id} className="border-t border-gray-100">
+                        <td className="px-4 py-3 text-sm">{o.name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{o.student_id}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{o.roles?.name ?? '-'}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => { setNewPresident(o.id); setTransferDialog(true) }}
+                            className="text-xs px-3 py-1.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+                          >
+                            양도
+                          </button>
+                        </td>
+                      </tr>
                     ))}
-                  </select>
-                  <button
-                    onClick={() => newPresident && setTransferDialog(true)}
-                    disabled={!newPresident}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    양도
-                  </button>
-                </div>
+                    {transferCandidates.filter((o) => o.user_id).length === 0 && (
+                      <tr><td colSpan={4} className="px-4 py-4 text-center text-gray-400 text-xs">양도받을 수 있는 임원이 없습니다</td></tr>
+                    )}
+                  </tbody>
+                </table>
               </section>
             ) : (
               <>
@@ -374,8 +394,21 @@ export default function PermissionsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {officers.filter((o) => !o.roles?.is_president).map((o) => (
-                        <OfficerAssignRow key={o.id} officer={o} roles={roles} onAssign={handleAssignRole} />
+                      {officers.filter((o) => !o.roles?.is_president && o.user_id).map((o) => (
+                        <tr key={o.id} className="border-t border-gray-100">
+                          <td className="px-4 py-3 text-sm">{o.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{o.student_id}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{o.roles?.name ?? '-'}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => handleAssignRole(o.id, selectedRoleId)}
+                              disabled={o.role_id === selectedRoleId}
+                              className="text-xs px-3 py-1.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {o.role_id === selectedRoleId ? '이미 부여됨' : '역할 부여'}
+                            </button>
+                          </td>
+                        </tr>
                       ))}
                     </tbody>
                   </table>
@@ -384,8 +417,40 @@ export default function PermissionsPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-xl p-12 flex items-center justify-center text-gray-400 text-sm">
-            좌측에서 역할을 선택하세요
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">임원 목록</h2>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-xs">
+                  <th className="text-left px-4 py-2.5 font-medium">이름</th>
+                  <th className="text-left px-4 py-2.5 font-medium">이메일</th>
+                  <th className="text-left px-4 py-2.5 font-medium">직책</th>
+                  <th className="px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {officers.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-xs">등록된 임원이 없습니다</td></tr>
+                )}
+                {officers.filter((o) => o.user_id).map((o) => (
+                  <tr key={o.id} className="border-t border-gray-100">
+                    <td className="px-4 py-3 font-medium text-gray-800">{o.name}</td>
+                    <td className="px-4 py-3 text-gray-500">{o.email}</td>
+                    <td className="px-4 py-3 text-gray-500">{o.roles?.name ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      {o.id !== currentMember?.id && (
+                        <button
+                          onClick={() => handleRemoveOfficer(o.id)}
+                          className="text-xs text-red-500 hover:text-red-700 border border-red-200 rounded px-2 py-1 transition"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -431,9 +496,14 @@ export default function PermissionsPage() {
                   </td>
                   <td className="px-4 py-3">
                     {!o.user_id && (
-                      <button onClick={() => handleResend(o.email)} className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded px-2 py-1 transition">
-                        재발송
-                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleResend(o.email)} className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded px-2 py-1 transition">
+                          재발송
+                        </button>
+                        <button onClick={() => handleRemoveOfficer(o.id)} className="text-xs text-red-500 hover:text-red-700 border border-red-200 rounded px-2 py-1 transition">
+                          삭제
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

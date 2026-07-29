@@ -14,9 +14,15 @@ export const memberService = {
     )
   },
 
+  async remove(id) {
+    return query(() =>
+      supabase.from('members').delete().eq('id', id)
+    )
+  },
+
   async getOfficers() {
     return query(() =>
-      supabase.from('members').select('*, roles(name, is_president)').not('user_id', 'is', null).order('created_at')
+      supabase.from('members').select('*, roles(name, is_president)').order('created_at')
     )
   },
 }
