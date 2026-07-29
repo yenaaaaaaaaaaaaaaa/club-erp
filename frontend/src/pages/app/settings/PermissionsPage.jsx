@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 import { roleService } from '@/services/roleService'
 import { memberService } from '@/services/memberService'
 
@@ -47,7 +48,9 @@ export default function PermissionsPage() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRoles()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOfficers()
   }, [loadRoles, loadOfficers])
 
@@ -153,7 +156,8 @@ export default function PermissionsPage() {
 
   const handleRemoveOfficer = async (id) => {
     try {
-      await memberService.remove(id)
+      const { error, data } = await supabase.functions.invoke('delete-officer', { body: { memberId: id } })
+      if (error || data?.error) throw new Error(data?.error ?? '삭제에 실패했습니다')
       await loadOfficers()
     } catch (err) {
       setInviteError(err.message)
@@ -162,9 +166,10 @@ export default function PermissionsPage() {
 
   const handleResend = async (email) => {
     try {
-      await roleService.inviteOfficer({ name: '', student_id: `resend_${Date.now()}`, email, role_id: null })
+      const { error, data } = await supabase.functions.invoke('invite-officer', { body: { email } })
+      if (error || data?.error) throw new Error(data?.error ?? '재발송에 실패했습니다')
     } catch (err) {
-      if (err.message.includes('이미 초대') || err.message.includes('이미 가입')) return
+      setInviteError(err.message)
     }
   }
 
