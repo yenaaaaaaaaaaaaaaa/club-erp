@@ -72,6 +72,28 @@ export const memberService = {
     )
   },
 
+  async upsertBulk(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new Error('올바른 엑셀 형식이 아닙니다. 템플릿을 확인하세요')
+    }
+    for (const row of rows) {
+      if (!row.name || !row.student_id || !row.email) {
+        throw new Error('이름, 학번, 이메일은 필수 입력 항목입니다')
+      }
+    }
+    const safeRows = rows.map(({ user_id, role_id, ...rest }) => rest)
+    try {
+      return await query(() =>
+        supabase.from('members').upsert(safeRows, { onConflict: 'student_id' }).select()
+      )
+    } catch (err) {
+      if (err.code === '23505' && err.message?.includes('email')) {
+        throw new Error('이미 등록된 이메일과 충돌이 발생했습니다')
+      }
+      throw err
+    }
+  },
+
   async getOfficers() {
     return query(() =>
       supabase.from('members').select('*, roles(name, is_president)').not('role_id', 'is', null).order('created_at')
