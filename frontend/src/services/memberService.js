@@ -14,12 +14,6 @@ export const memberService = {
     )
   },
 
-  async getOfficers() {
-    return query(() =>
-      supabase.from('members').select('*, roles(name)').not('user_id', 'is', null).order('created_at')
-    )
-  },
-
   async getAll(filters = {}) {
     return query(() => {
       let q = supabase.from('members').select('*, roles(name)').order('created_at')
@@ -80,7 +74,7 @@ export const memberService = {
 
   async getOfficers() {
     return query(() =>
-      supabase.from('members').select('*, roles(name, is_president)').order('created_at')
+      supabase.from('members').select('*, roles(name, is_president)').not('role_id', 'is', null).order('created_at')
     )
   },
 }
