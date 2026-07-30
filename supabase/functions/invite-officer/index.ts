@@ -100,15 +100,23 @@ serve(async (req) => {
     const redirectTo = `${siteUrl}/auth/setup-password`
       
     // 초대장 발송
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+    let { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo,
     })
 
-    if (error) {
-      // 이미 가입된 유저 등의 처리 (에러 문구 가공)
-      if (error.message.includes('already exists') || error.message.includes('already registered')) {
-        throw new Error('이미 가입된 이메일입니다')
+    if (error && (error.message.includes('already exists') || error.message.includes('already registered'))) {
+      // 이전에 가입했다가 삭제된 계정이 auth에 남아있는 경우 → 삭제 후 재초대
+      const { data: { users } } = await supabase.auth.admin.listUsers()
+      const existingUser = users.find((u: { email?: string }) => u.email === email)
+      if (existingUser) {
+        await supabase.auth.admin.deleteUser(existingUser.id)
+        const retry = await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
+        data = retry.data
+        error = retry.error
       }
+    }
+
+    if (error) {
       throw error
     }
 
