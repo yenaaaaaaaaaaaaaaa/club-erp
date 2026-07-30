@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 import { roleService } from '@/services/roleService'
 import { memberService } from '@/services/memberService'
-import { supabase } from '@/lib/supabase'
 
 
 const PERMS = [
