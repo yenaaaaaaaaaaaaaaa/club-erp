@@ -13,17 +13,17 @@ const MAX_SIZE = 50 * 1024 * 1024 // 50MB
 
 function validateFile(file) {
   if (!ALLOWED_TYPES.includes(file.type)) {
-    throw new Error('PDF, PNG, JPG, DOCX 파일만 첨부할 수 있습니다')
+    throw new Error('pdf, png, jpg, docx 파일만 첨부 가능합니다')
   }
   if (file.size > MAX_SIZE) {
-    throw new Error('파일 크기는 50MB를 초과할 수 없습니다')
+    throw new Error('파일 크기는 50MB 이하여야 합니다')
   }
 }
 
 export const noticeService = {
   async getAll() {
     return query(() =>
-      supabase.from('notices').select('*, notice_files(*)').order('created_at', { ascending: false })
+      supabase.from('notices').select('id, title, created_at, author_id').order('created_at', { ascending: false })
     )
   },
 
@@ -31,7 +31,7 @@ export const noticeService = {
     return query(() =>
       supabase
         .from('notices')
-        .select('*, notice_files(*), events(*)')
+        .select('*, notice_files(*), events(id, title, start_date)')
         .eq('id', id)
         .single()
     )
@@ -82,7 +82,7 @@ export const noticeService = {
     if (files && files.length > 0) {
       const paths = files.map((f) => f.file_path)
       storageService.remove(BUCKET, paths).catch((err) => {
-        console.error('storage 파일 삭제 실패 (무시):', err)
+        console.error('storage 파일 삭제 실패:', paths, err)
       })
     }
   },
