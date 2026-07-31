@@ -6,6 +6,7 @@ import SetupPasswordPage from '@/pages/auth/SetupPasswordPage'
 import AppLayout from '@/pages/app/AppLayout'
 import PermissionRoute from '@/pages/app/PermissionRoute'
 import MembersPage from '@/pages/app/members/MembersPage'
+import PermissionsPage from '@/pages/app/settings/PermissionsPage'
 
 function PrivateRoute({ children }) {
   const { user, isLoading } = useAuthStore()
@@ -86,7 +87,7 @@ const router = createBrowserRouter([
         path: 'settings/permissions',
         element: (
           <PermissionRoute perm="president">
-            <div>권한 관리</div>
+            <PermissionsPage />
           </PermissionRoute>
         ),
       },
