@@ -159,60 +159,81 @@ function TableEdgeHandles({ editor, containerRef }) {
     } catch { editor.commands.focus() }
   }
 
-  const makeRightDrag = (tbl) => (e) => {
+  const getLastColCell = (tableEl) => {
+    const firstRow = tableEl.querySelector('tr')
+    const cells = firstRow?.querySelectorAll('td, th')
+    return cells?.[cells.length - 1] ?? null
+  }
+
+  const getLastRowCell = (tableEl) => {
+    const rows = tableEl.querySelectorAll('tr')
+    return rows[rows.length - 1]?.querySelector('td, th') ?? null
+  }
+
+  // 우측 핸들: 클릭 → 열 추가, ← 드래그 → 빈 마지막 열 삭제
+  const makeRightHandle = (tbl) => (e) => {
     e.preventDefault()
     const startX = e.clientX
-    let moved = false
-    const onMove = () => { moved = true }
-    const onUp = (e) => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-      if (!moved) return
+    let dragged = false
+    let deleted = false
+
+    const onMove = (e) => {
       const delta = e.clientX - startX
-      if (delta > 30) {
-        // 마지막 열 셀에 포커스해야 addColumnAfter가 맨 오른쪽에 추가됨
-        const firstRow = tbl.el.querySelector('tr')
-        const cells = firstRow?.querySelectorAll('td, th')
-        const lastCell = cells?.[cells.length - 1]
-        if (lastCell) { focusCell(lastCell); setTimeout(() => editor.chain().focus().addColumnAfter().run(), 0) }
-      } else if (delta < -30) {
+      if (!dragged && Math.abs(delta) > 8) dragged = true
+      // ← 드래그: 40px마다 마지막 빈 열 삭제
+      if (dragged && delta < -40 && !deleted) {
         if (isLastColEmpty(tbl.el)) {
-          const rows = tbl.el.querySelectorAll('tr')
-          const lastCell = rows[0]?.querySelectorAll('td, th')
-          const cell = lastCell?.[lastCell.length - 1]
-          if (cell) { focusCell(cell); setTimeout(() => editor.chain().focus().deleteColumn().run(), 0) }
+          const cell = getLastColCell(tbl.el)
+          if (cell) { focusCell(cell); editor.chain().focus().deleteColumn().run() }
+          deleted = true
         }
       }
     }
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      if (!dragged) {
+        // 클릭: 열 추가
+        const cell = getLastColCell(tbl.el)
+        if (cell) { focusCell(cell); setTimeout(() => editor.chain().focus().addColumnAfter().run(), 0) }
+      }
+    }
+
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
 
+  // 하단 핸들: ↓ 드래그 → 행 연속 추가, ↑ 드래그 → 빈 마지막 행 삭제
   const makeBottomDrag = (tbl) => (e) => {
     e.preventDefault()
-    const startY = e.clientY
-    let moved = false
-    const onMove = () => { moved = true }
-    const onUp = (e) => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-      if (!moved) return
-      const delta = e.clientY - startY
-      if (delta > 30) {
-        // 마지막 행 셀에 포커스해야 addRowAfter가 맨 아래에 추가됨
-        const rows = tbl.el.querySelectorAll('tr')
-        const lastRow = rows[rows.length - 1]
-        const lastRowCell = lastRow?.querySelector('td, th')
-        if (lastRowCell) { focusCell(lastRowCell); setTimeout(() => editor.chain().focus().addRowAfter().run(), 0) }
-      } else if (delta < -30) {
+    const STEP = 40 // px당 1행 추가
+    let lastY = e.clientY
+    let addedCount = 0
+
+    const onMove = (e) => {
+      const delta = e.clientY - lastY
+      if (delta >= STEP) {
+        const cell = getLastRowCell(tbl.el)
+        if (cell) { focusCell(cell); editor.chain().focus().addRowAfter().run() }
+        lastY += STEP
+        addedCount++
+      } else if (delta <= -STEP && addedCount === 0) {
+        // 위쪽 드래그: 마지막 빈 행 삭제
         if (isLastRowEmpty(tbl.el)) {
           const rows = tbl.el.querySelectorAll('tr')
-          const lastRow = rows[rows.length - 1]
-          const cell = lastRow?.querySelector('td, th')
-          if (cell) { focusCell(cell); setTimeout(() => editor.chain().focus().deleteRow().run(), 0) }
+          const cell = rows[rows.length - 1]?.querySelector('td, th')
+          if (cell) { focusCell(cell); editor.chain().focus().deleteRow().run() }
         }
+        lastY -= STEP
       }
     }
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
@@ -226,7 +247,7 @@ function TableEdgeHandles({ editor, containerRef }) {
           {/* 우측 핸들 */}
           <div
             title="→ 드래그: 열 추가  ← 드래그: 빈 마지막 열 삭제"
-            onMouseDown={makeRightDrag(tbl)}
+            onMouseDown={makeRightHandle(tbl)}
             style={{
               position: 'absolute',
               top: tbl.top,
