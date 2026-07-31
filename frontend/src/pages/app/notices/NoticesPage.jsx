@@ -352,7 +352,8 @@ export default function NoticesPage() {
       Blockquote, HorizontalRule,
     ],
     content: '',
-    editable: mode === 'edit',
+    // editable은 useEffect로만 제어 — 여기서 mode를 참조하면 Tiptap이 에디터 재생성 → 콘텐츠 초기화
+    editable: false,
   })
 
   useEffect(() => {
@@ -456,15 +457,25 @@ export default function NoticesPage() {
         .tiptap-editor table { border-collapse: collapse; width: 100%; margin: 12px 0; }
         .tiptap-editor td, .tiptap-editor th {
           border: 1px solid #d1d5db; padding: 6px 10px; min-width: 60px;
-          position: relative; word-break: break-word; white-space: normal; vertical-align: top;
+          position: relative; word-break: break-word; white-space: normal;
+          vertical-align: top; overflow: visible;
         }
         .tiptap-editor th { background: #f9fafb; font-weight: 600; }
         .tiptap-editor .selectedCell { background: #eff6ff; }
         .tiptap-editor .column-resize-handle {
-          background-color: #3b82f6; bottom: 0; pointer-events: none;
-          position: absolute; right: -2px; top: 0; width: 4px; z-index: 20;
+          background-color: #93c5fd;
+          bottom: 0; position: absolute; right: -3px; top: 0; width: 6px; z-index: 20;
+          cursor: col-resize; border-radius: 3px; opacity: 0;
+          transition: opacity 0.15s;
         }
-        .resize-cursor { cursor: col-resize !important; }
+        .tiptap-editor td:hover .column-resize-handle,
+        .tiptap-editor th:hover .column-resize-handle {
+          opacity: 1;
+        }
+        .tiptap-editor .column-resize-handle:hover {
+          background-color: #3b82f6; opacity: 1;
+        }
+        .resize-cursor, .resize-cursor * { cursor: col-resize !important; }
         .tiptap-editor p { margin: 0; }
         .tiptap-editor .ProseMirror { outline: none; min-height: 100%; }
       `}</style>
