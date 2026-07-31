@@ -99,196 +99,191 @@ const ResizableImage = Image.extend({
   },
 })
 
-// ── 표 엣지 핸들 (floating overlay) ──────────────────────────
-function TableEdgeHandles({ editor, containerRef }) {
+// ── 표 오버레이 (열 리사이즈 + 행/열 추가·삭제 핸들) ─────────
+function TableOverlays({ editor, containerRef }) {
   const [tables, setTables] = useState([])
+
+  const buildTables = useCallback(() => {
+    if (!editor || !containerRef.current) return
+    const container = containerRef.current
+    const cRect = container.getBoundingClientRect()
+    const sTop = container.scrollTop
+    const sLeft = container.scrollLeft
+
+    const updated = Array.from(editor.view.dom.querySelectorAll('table')).map((el, i) => {
+      const r = el.getBoundingClientRect()
+      const firstRow = el.querySelector('tr')
+      const cells = firstRow ? Array.from(firstRow.querySelectorAll('td, th')) : []
+      // 열 경계선 핸들: 각 열의 오른쪽 끝 (마지막 열 제외 — 마지막은 엣지 핸들)
+      const colHandles = cells.slice(0, -1).map((cell, ci) => {
+        const cr = cell.getBoundingClientRect()
+        return { key: `c${i}-${ci}`, colIndex: ci, tableEl: el, x: cr.right - cRect.left + sLeft }
+      })
+      return {
+        key: i, el,
+        top: r.top - cRect.top + sTop,
+        left: r.left - cRect.left + sLeft,
+        width: r.width, height: r.height,
+        colHandles,
+      }
+    })
+    setTables(updated)
+  }, [editor, containerRef])
 
   useEffect(() => {
     if (!editor) return
-    const refresh = () => {
-      if (!containerRef.current) return
-      const tableEls = Array.from(editor.view.dom.querySelectorAll('table'))
-      const containerRect = containerRef.current.getBoundingClientRect()
-      const scrollTop = containerRef.current.scrollTop
-      const scrollLeft = containerRef.current.scrollLeft
-
-      const updated = tableEls.map((el, i) => {
-        const r = el.getBoundingClientRect()
-        return {
-          key: i,
-          el,
-          top: r.top - containerRect.top + scrollTop,
-          left: r.left - containerRect.left + scrollLeft,
-          width: r.width,
-          height: r.height,
-        }
-      })
-      setTables(updated)
-    }
-
-    // editor 업데이트 시 + 약간 지연 (DOM 반영 후)
-    const onUpdate = () => setTimeout(refresh, 30)
+    const onUpdate = () => setTimeout(buildTables, 30)
     editor.on('update', onUpdate)
     editor.on('selectionUpdate', onUpdate)
-    refresh()
-    return () => {
-      editor.off('update', onUpdate)
-      editor.off('selectionUpdate', onUpdate)
-    }
-  }, [editor, containerRef])
+    buildTables()
+    return () => { editor.off('update', onUpdate); editor.off('selectionUpdate', onUpdate) }
+  }, [editor, buildTables])
 
-  const isLastColEmpty = (tableEl) => {
-    return Array.from(tableEl.querySelectorAll('tr')).every(row => {
-      const cells = row.querySelectorAll('td, th')
-      const last = cells[cells.length - 1]
-      return !last || last.textContent.trim() === ''
+  // ── 열 너비 리사이즈 ────────────────────────────────────────
+  const persistColWidths = (tableEl, colIndex, leftW, rightW) => {
+    const view = editor.view
+    let tr = view.state.tr
+    tableEl.querySelectorAll('tr').forEach(row => {
+      Array.from(row.querySelectorAll('td, th')).forEach((cell, ci) => {
+        if (ci !== colIndex && ci !== colIndex + 1) return
+        const width = ci === colIndex ? leftW : rightW
+        try {
+          const domPos = view.posAtDOM(cell, 0)
+          const $pos = view.state.doc.resolve(domPos)
+          for (let d = $pos.depth; d >= 0; d--) {
+            const node = $pos.node(d)
+            if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+              tr = tr.setNodeMarkup($pos.before(d), null, { ...node.attrs, colwidth: [width] })
+              break
+            }
+          }
+        } catch {}
+      })
     })
+    view.dispatch(tr)
   }
 
-  const isLastRowEmpty = (tableEl) => {
-    const rows = tableEl.querySelectorAll('tr')
-    if (!rows.length) return false
-    const lastRow = rows[rows.length - 1]
-    return Array.from(lastRow.querySelectorAll('td, th')).every(c => c.textContent.trim() === '')
+  const makeColResize = (h) => (e) => {
+    e.preventDefault()
+    const firstRow = h.tableEl.querySelector('tr')
+    const cells = Array.from(firstRow.querySelectorAll('td, th'))
+    const startX = e.clientX
+    const startLeft = cells[h.colIndex].getBoundingClientRect().width
+    const startRight = cells[h.colIndex + 1]?.getBoundingClientRect().width ?? 80
+
+    const onMove = (e) => {
+      const delta = e.clientX - startX
+      const newLeft = Math.max(40, startLeft + delta)
+      const newRight = Math.max(40, startRight - delta)
+      const colgroup = h.tableEl.querySelector('colgroup')
+      if (colgroup) {
+        const cols = colgroup.querySelectorAll('col')
+        if (cols[h.colIndex]) cols[h.colIndex].style.width = newLeft + 'px'
+        if (cols[h.colIndex + 1]) cols[h.colIndex + 1].style.width = newRight + 'px'
+      }
+      buildTables()
+    }
+
+    const onUp = (e) => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      const delta = e.clientX - startX
+      persistColWidths(h.tableEl, h.colIndex, Math.max(40, Math.round(startLeft + delta)), Math.max(40, Math.round(startRight - delta)))
+    }
+
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
   }
 
+  // ── 행/열 추가·삭제 헬퍼 ────────────────────────────────────
   const focusCell = (cellEl) => {
     try {
       const pos = editor.view.posAtDOM(cellEl, 0)
       editor.chain().setTextSelection(pos).focus().run()
     } catch { editor.commands.focus() }
   }
-
-  const getLastColCell = (tableEl) => {
-    const firstRow = tableEl.querySelector('tr')
-    const cells = firstRow?.querySelectorAll('td, th')
-    return cells?.[cells.length - 1] ?? null
+  const isLastColEmpty = (el) => Array.from(el.querySelectorAll('tr')).every(row => {
+    const cells = row.querySelectorAll('td, th')
+    return !cells[cells.length - 1] || cells[cells.length - 1].textContent.trim() === ''
+  })
+  const isLastRowEmpty = (el) => {
+    const rows = el.querySelectorAll('tr')
+    if (!rows.length) return false
+    return Array.from(rows[rows.length - 1].querySelectorAll('td, th')).every(c => c.textContent.trim() === '')
   }
+  const lastColCell = (el) => { const c = el.querySelector('tr')?.querySelectorAll('td, th'); return c?.[c.length - 1] ?? null }
+  const lastRowCell = (el) => { const r = el.querySelectorAll('tr'); return r[r.length - 1]?.querySelector('td, th') ?? null }
 
-  const getLastRowCell = (tableEl) => {
-    const rows = tableEl.querySelectorAll('tr')
-    return rows[rows.length - 1]?.querySelector('td, th') ?? null
-  }
-
-  // 우측 핸들: 클릭 → 열 추가, ← 길게 드래그 → 빈 마지막 열 연속 삭제
+  // ── 우측 핸들: 클릭 열 추가 / ← 드래그 빈 열 연속 삭제 ────
   const makeRightHandle = (tbl) => (e) => {
     e.preventDefault()
-    const STEP = 40
-    let lastX = e.clientX
-    let dragged = false
-
+    const STEP = 40; let lastX = e.clientX; let dragged = false
     const onMove = (e) => {
-      const delta = e.clientX - lastX
       if (!dragged && Math.abs(e.clientX - lastX) > 8) dragged = true
-      if (dragged && delta <= -STEP) {
-        // ← 드래그: STEP마다 빈 마지막 열 삭제
-        if (isLastColEmpty(tbl.el)) {
-          const cell = getLastColCell(tbl.el)
-          if (cell) { focusCell(cell); editor.chain().focus().deleteColumn().run() }
-        }
+      if (dragged && e.clientX - lastX <= -STEP) {
+        if (isLastColEmpty(tbl.el)) { const c = lastColCell(tbl.el); if (c) { focusCell(c); editor.chain().focus().deleteColumn().run() } }
         lastX -= STEP
       }
     }
-
     const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-      if (!dragged) {
-        // 클릭: 열 추가
-        const cell = getLastColCell(tbl.el)
-        if (cell) { focusCell(cell); setTimeout(() => editor.chain().focus().addColumnAfter().run(), 0) }
-      }
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp)
+      if (!dragged) { const c = lastColCell(tbl.el); if (c) { focusCell(c); setTimeout(() => editor.chain().focus().addColumnAfter().run(), 0) } }
     }
-
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
-  // 하단 핸들: ↓ 드래그 → 행 연속 추가, ↑ 드래그 → 빈 마지막 행 삭제
+  // ── 하단 핸들: ↓ 드래그 행 연속 추가 / ↑ 빈 행 삭제 ────────
   const makeBottomDrag = (tbl) => (e) => {
     e.preventDefault()
-    const STEP = 40 // px당 1행 추가
-    let lastY = e.clientY
-    let addedCount = 0
-
+    const STEP = 40; let lastY = e.clientY; let added = 0
     const onMove = (e) => {
-      const delta = e.clientY - lastY
-      if (delta >= STEP) {
-        const cell = getLastRowCell(tbl.el)
-        if (cell) { focusCell(cell); editor.chain().focus().addRowAfter().run() }
-        lastY += STEP
-        addedCount++
-      } else if (delta <= -STEP && addedCount === 0) {
-        // 위쪽 드래그: 마지막 빈 행 삭제
-        if (isLastRowEmpty(tbl.el)) {
-          const rows = tbl.el.querySelectorAll('tr')
-          const cell = rows[rows.length - 1]?.querySelector('td, th')
-          if (cell) { focusCell(cell); editor.chain().focus().deleteRow().run() }
-        }
+      if (e.clientY - lastY >= STEP) {
+        const c = lastRowCell(tbl.el); if (c) { focusCell(c); editor.chain().focus().addRowAfter().run() }
+        lastY += STEP; added++
+      } else if (e.clientY - lastY <= -STEP && added === 0) {
+        if (isLastRowEmpty(tbl.el)) { const r = tbl.el.querySelectorAll('tr'); const c = r[r.length - 1]?.querySelector('td, th'); if (c) { focusCell(c); editor.chain().focus().deleteRow().run() } }
         lastY -= STEP
       }
     }
-
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
-  const HANDLE_SIZE = 8
+  const HS = 8
 
   return (
     <>
       {tables.map(tbl => (
         <div key={tbl.key}>
+          {/* 열 너비 리사이즈 핸들 (각 열 경계선) */}
+          {tbl.colHandles.map(h => (
+            <div
+              key={h.key}
+              onMouseDown={makeColResize(h)}
+              title="드래그하여 열 너비 조정"
+              style={{
+                position: 'absolute',
+                top: tbl.top, left: h.x - 4,
+                width: 8, height: tbl.height,
+                cursor: 'col-resize', zIndex: 35,
+                display: 'flex', alignItems: 'stretch',
+              }}
+            >
+              <div style={{ width: 2, margin: '0 3px', background: '#bfdbfe', borderRadius: 1, transition: 'background 0.1s' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#3b82f6'}
+                onMouseLeave={e => e.currentTarget.style.background = '#bfdbfe'}
+              />
+            </div>
+          ))}
           {/* 우측 핸들 */}
-          <div
-            title="→ 드래그: 열 추가  ← 드래그: 빈 마지막 열 삭제"
-            onMouseDown={makeRightHandle(tbl)}
-            style={{
-              position: 'absolute',
-              top: tbl.top,
-              left: tbl.left + tbl.width,
-              width: HANDLE_SIZE + 4,
-              height: tbl.height,
-              cursor: 'col-resize',
-              zIndex: 40,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <div style={{
-              width: HANDLE_SIZE, height: '40%', minHeight: 24,
-              background: '#93c5fd', borderRadius: 4,
-              pointerEvents: 'none',
-            }} />
+          <div onMouseDown={makeRightHandle(tbl)} title="클릭: 열 추가  ← 드래그: 빈 열 삭제"
+            style={{ position: 'absolute', top: tbl.top, left: tbl.left + tbl.width, width: HS + 4, height: tbl.height, cursor: 'default', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: HS, height: '40%', minHeight: 24, background: '#93c5fd', borderRadius: 4, pointerEvents: 'none' }} />
           </div>
           {/* 하단 핸들 */}
-          <div
-            title="↓ 드래그: 행 추가  ↑ 드래그: 빈 마지막 행 삭제"
-            onMouseDown={makeBottomDrag(tbl)}
-            style={{
-              position: 'absolute',
-              top: tbl.top + tbl.height,
-              left: tbl.left,
-              width: tbl.width,
-              height: HANDLE_SIZE + 4,
-              cursor: 'row-resize',
-              zIndex: 40,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <div style={{
-              height: HANDLE_SIZE, width: '40%', minWidth: 24,
-              background: '#93c5fd', borderRadius: 4,
-              pointerEvents: 'none',
-            }} />
+          <div onMouseDown={makeBottomDrag(tbl)} title="↓ 드래그: 행 추가  ↑ 드래그: 빈 행 삭제"
+            style={{ position: 'absolute', top: tbl.top + tbl.height, left: tbl.left, width: tbl.width, height: HS + 4, cursor: 'row-resize', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ height: HS, width: '40%', minWidth: 24, background: '#93c5fd', borderRadius: 4, pointerEvents: 'none' }} />
           </div>
         </div>
       ))}
@@ -457,7 +452,7 @@ export default function NoticesPage() {
         }
         .tiptap-editor hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
         .tiptap-editor table {
-          border-collapse: collapse; width: calc(100% - 20px); margin: 12px 0;
+          border-collapse: collapse; width: 90%; margin: 12px auto;
           table-layout: fixed;
         }
         .tiptap-editor td, .tiptap-editor th {
@@ -467,14 +462,7 @@ export default function NoticesPage() {
         }
         .tiptap-editor th { background: #f9fafb; font-weight: 600; }
         .tiptap-editor .selectedCell { background: #eff6ff; }
-        .tiptap-editor .column-resize-handle {
-          background-color: #93c5fd;
-          bottom: 0; position: absolute; right: -3px; top: 0; width: 6px;
-          z-index: 30; cursor: col-resize; border-radius: 2px;
-        }
-        .tiptap-editor .column-resize-handle:hover {
-          background-color: #2563eb;
-        }
+        .tiptap-editor .column-resize-handle { display: none; }
         .resize-cursor, .resize-cursor * { cursor: col-resize !important; }
         .tiptap-editor p { margin: 0; }
         .tiptap-editor .ProseMirror { outline: none; min-height: 100%; }
@@ -570,13 +558,13 @@ export default function NoticesPage() {
               <div
                 ref={editorContainerRef}
                 className="flex-1 overflow-y-auto tiptap-editor cursor-text"
-                style={{ position: 'relative', paddingRight: '32px' }}
+                style={{ position: 'relative' }}
                 onClick={e => { if (e.target === e.currentTarget) editor?.commands.focus('end') }}
               >
                 <EditorContent editor={editor} className="h-full prose max-w-none" />
-                {/* 표 엣지 드래그 핸들 overlay */}
+                {/* 표 오버레이 핸들 */}
                 {mode === 'edit' && (
-                  <TableEdgeHandles editor={editor} containerRef={editorContainerRef} />
+                  <TableOverlays editor={editor} containerRef={editorContainerRef} />
                 )}
               </div>
             </div>
