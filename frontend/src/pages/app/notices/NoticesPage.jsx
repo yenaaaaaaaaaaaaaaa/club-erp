@@ -78,18 +78,6 @@ function ResizableImageView({ node, updateAttributes }) {
             opacity: 0.85,
           }}
         />
-        {/* 오른쪽 하단 핸들 */}
-        <div
-          onMouseDown={startResize}
-          style={{
-            position: 'absolute', bottom: 6, right: 6,
-            width: 12, height: 12,
-            background: '#2563eb', borderRadius: 3,
-            cursor: 'nwse-resize', zIndex: 30,
-            boxShadow: '0 0 0 2px white, 0 1px 4px rgba(0,0,0,0.4)',
-            opacity: 0.85,
-          }}
-        />
       </div>
     </NodeViewWrapper>
   )
@@ -182,8 +170,11 @@ function TableEdgeHandles({ editor, containerRef }) {
       if (!moved) return
       const delta = e.clientX - startX
       if (delta > 30) {
-        const firstCell = tbl.el.querySelector('td, th')
-        if (firstCell) { focusCell(firstCell); setTimeout(() => editor.chain().focus().addColumnAfter().run(), 0) }
+        // 마지막 열 셀에 포커스해야 addColumnAfter가 맨 오른쪽에 추가됨
+        const firstRow = tbl.el.querySelector('tr')
+        const cells = firstRow?.querySelectorAll('td, th')
+        const lastCell = cells?.[cells.length - 1]
+        if (lastCell) { focusCell(lastCell); setTimeout(() => editor.chain().focus().addColumnAfter().run(), 0) }
       } else if (delta < -30) {
         if (isLastColEmpty(tbl.el)) {
           const rows = tbl.el.querySelectorAll('tr')
@@ -208,8 +199,11 @@ function TableEdgeHandles({ editor, containerRef }) {
       if (!moved) return
       const delta = e.clientY - startY
       if (delta > 30) {
-        const firstCell = tbl.el.querySelector('td, th')
-        if (firstCell) { focusCell(firstCell); setTimeout(() => editor.chain().focus().addRowAfter().run(), 0) }
+        // 마지막 행 셀에 포커스해야 addRowAfter가 맨 아래에 추가됨
+        const rows = tbl.el.querySelectorAll('tr')
+        const lastRow = rows[rows.length - 1]
+        const lastRowCell = lastRow?.querySelector('td, th')
+        if (lastRowCell) { focusCell(lastRowCell); setTimeout(() => editor.chain().focus().addRowAfter().run(), 0) }
       } else if (delta < -30) {
         if (isLastRowEmpty(tbl.el)) {
           const rows = tbl.el.querySelectorAll('tr')
