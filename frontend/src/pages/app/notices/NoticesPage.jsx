@@ -214,13 +214,18 @@ function TableOverlays({ editor, containerRef }) {
   const lastColCell = (el) => { const c = el.querySelector('tr')?.querySelectorAll('td, th'); return c?.[c.length - 1] ?? null }
   const lastRowCell = (el) => { const r = el.querySelectorAll('tr'); return r[r.length - 1]?.querySelector('td, th') ?? null }
 
-  // ── 우측 핸들: 클릭 열 추가 / ← 드래그 빈 열 연속 삭제 ────
+  // ── 우측 핸들: → 드래그 or 클릭 → 열 추가 / ← 드래그 → 빈 열 연속 삭제 ──
   const makeRightHandle = (tbl) => (e) => {
     e.preventDefault()
     const STEP = 40; let lastX = e.clientX; let dragged = false
     const onMove = (e) => {
       if (!dragged && Math.abs(e.clientX - lastX) > 8) dragged = true
-      if (dragged && e.clientX - lastX <= -STEP) {
+      if (dragged && e.clientX - lastX >= STEP) {
+        // → 드래그: 열 추가
+        const c = lastColCell(tbl.el); if (c) { focusCell(c); editor.chain().focus().addColumnAfter().run() }
+        lastX += STEP
+      } else if (dragged && e.clientX - lastX <= -STEP) {
+        // ← 드래그: 빈 열 삭제
         if (isLastColEmpty(tbl.el)) { const c = lastColCell(tbl.el); if (c) { focusCell(c); editor.chain().focus().deleteColumn().run() } }
         lastX -= STEP
       }
@@ -275,14 +280,14 @@ function TableOverlays({ editor, containerRef }) {
               />
             </div>
           ))}
-          {/* 우측 핸들 */}
-          <div onMouseDown={makeRightHandle(tbl)} title="클릭: 열 추가  ← 드래그: 빈 열 삭제"
-            style={{ position: 'absolute', top: tbl.top, left: tbl.left + tbl.width, width: HS + 4, height: tbl.height, cursor: 'default', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* 우측 핸들 (표에서 3px 띄움) */}
+          <div onMouseDown={makeRightHandle(tbl)} title="→ 드래그 or 클릭: 열 추가  ← 드래그: 빈 열 삭제"
+            style={{ position: 'absolute', top: tbl.top, left: tbl.left + tbl.width + 3, width: HS + 4, height: tbl.height, cursor: 'ew-resize', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: HS, height: '40%', minHeight: 24, background: '#93c5fd', borderRadius: 4, pointerEvents: 'none' }} />
           </div>
-          {/* 하단 핸들 */}
+          {/* 하단 핸들 (표에서 3px 띄움) */}
           <div onMouseDown={makeBottomDrag(tbl)} title="↓ 드래그: 행 추가  ↑ 드래그: 빈 행 삭제"
-            style={{ position: 'absolute', top: tbl.top + tbl.height, left: tbl.left, width: tbl.width, height: HS + 4, cursor: 'row-resize', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            style={{ position: 'absolute', top: tbl.top + tbl.height + 3, left: tbl.left, width: tbl.width, height: HS + 4, cursor: 'row-resize', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ height: HS, width: '40%', minWidth: 24, background: '#93c5fd', borderRadius: 4, pointerEvents: 'none' }} />
           </div>
         </div>
