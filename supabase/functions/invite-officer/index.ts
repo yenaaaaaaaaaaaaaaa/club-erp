@@ -77,10 +77,16 @@ serve(async (req) => {
     }
 
     if (targetMember.user_id) {
-      return new Response(JSON.stringify({ error: '이미 연결된 계정입니다.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      // auth 유저가 실제로 존재하는지 확인 (삭제된 경우 재초대 허용)
+      const { data: authUser } = await supabase.auth.admin.getUserById(targetMember.user_id)
+      if (authUser?.user) {
+        return new Response(JSON.stringify({ error: '이미 연결된 계정입니다.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      // auth 유저가 없으면 user_id 초기화 후 재초대 진행
+      await supabase.from('members').update({ user_id: null }).eq('id', targetMember.id)
     }
 
     // SITE_URL 필수 처리 (로컬이 아닌 클라우드 배포 시 반드시 세팅해야 함)
@@ -94,23 +100,15 @@ serve(async (req) => {
     const redirectTo = `${siteUrl}/auth/setup-password`
       
     // 초대장 발송
-    let { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo,
     })
 
-    if (error && (error.message.includes('already exists') || error.message.includes('already registered'))) {
-      // 이전에 가입했다가 삭제된 계정이 auth에 남아있는 경우 → 삭제 후 재초대
-      const { data: { users } } = await supabase.auth.admin.listUsers()
-      const existingUser = users.find((u: { email?: string }) => u.email === email)
-      if (existingUser) {
-        await supabase.auth.admin.deleteUser(existingUser.id)
-        const retry = await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
-        data = retry.data
-        error = retry.error
-      }
-    }
-
     if (error) {
+      // 이미 가입된 유저 등의 처리 (에러 문구 가공)
+      if (error.message.includes('already exists') || error.message.includes('already registered')) {
+        throw new Error('이미 가입된 이메일입니다')
+      }
       throw error
     }
 

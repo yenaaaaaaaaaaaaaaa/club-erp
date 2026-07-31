@@ -12,7 +12,7 @@ export const roleService = {
   // 2. 역할 단건 조회 (보유 임원 포함)
   async getById(id) {
     return query(() =>
-      supabase.from('roles').select('*, members(id, name, student_id, phone, department, role_id)').eq('id', id).single()
+      supabase.from('roles').select('*, members(id, name, student_id, phone, department, role_id, created_at)').eq('id', id).single()
     )
   },
 
