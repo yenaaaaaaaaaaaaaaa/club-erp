@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Bold from '@tiptap/extension-bold'
@@ -56,7 +56,7 @@ function ResizableImageView({ node, updateAttributes }) {
   }
 
   return (
-    <NodeViewWrapper as="div" style={{ position: 'relative', display: 'block', margin: '12px 0', userSelect: 'none' }}>
+    <NodeViewWrapper as="div" style={{ display: 'block', margin: '12px 0', textAlign: 'center', userSelect: 'none' }}>
       <div style={{ position: 'relative', display: 'inline-block' }}>
         <img
           ref={imgRef}
@@ -344,17 +344,18 @@ export default function NoticesPage() {
   const imageInputRef = useRef(null)
   const editorContainerRef = useRef(null)
 
+  // extensions를 memoize — 매 render마다 새 배열이면 compareOptions가 false → setOptions 반복 호출
+  const extensions = useMemo(() => [
+    StarterKit.configure({ bold: false, italic: false, strike: false, blockquote: false, horizontalRule: false }),
+    Bold, Italic, Underline, Strike, ResizableImage,
+    Table.configure({ resizable: true }), TableRow, TableCell, TableHeader,
+    Blockquote, HorizontalRule,
+  ], [])
+
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ bold: false, italic: false, strike: false, blockquote: false, horizontalRule: false }),
-      Bold, Italic, Underline, Strike, ResizableImage,
-      Table.configure({ resizable: true }), TableRow, TableCell, TableHeader,
-      Blockquote, HorizontalRule,
-    ],
+    extensions,
     content: '',
     // true로 초기화해야 addProseMirrorPlugins()에서 columnResizing 플러그인이 등록됨
-    // (Table extension이 isEditable 체크를 플러그인 등록 시점에 수행)
-    // 실제 editable 상태는 아래 useEffect에서 mode에 따라 제어
     editable: true,
   })
 
@@ -382,8 +383,11 @@ export default function NoticesPage() {
   }
 
   const startEdit = () => {
+    const content = selected.content || ''
     setTitle(selected.title); setFiles([]); setError(''); setMode('edit')
-    editor?.commands.setContent(selected.content || '')
+    // setMode 후 editor.setEditable(true)가 useEffect에서 실행된 다음에 setContent 호출
+    // (editable=false 상태에서 setContent가 무시되는 문제 방지)
+    setTimeout(() => editor?.commands.setContent(content), 0)
   }
 
   const handleSave = async () => {
@@ -471,6 +475,7 @@ export default function NoticesPage() {
         .resize-cursor, .resize-cursor * { cursor: col-resize !important; }
         .tiptap-editor p { margin: 0; }
         .tiptap-editor .ProseMirror { outline: none; min-height: 100%; }
+        .tiptap-editor img, .prose img { display: block; margin: 12px auto; max-width: 100%; }
       `}</style>
 
       {/* 좌측 패널 */}
