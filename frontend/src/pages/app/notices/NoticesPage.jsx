@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Bold from '@tiptap/extension-bold'
 import Italic from '@tiptap/extension-italic'
@@ -36,30 +36,103 @@ function fileToBase64(file) {
   })
 }
 
+// 드래그로 크기 조절 가능한 이미지 NodeView
+function ResizableImageView({ node, updateAttributes }) {
+  const { src, width, alt } = node.attrs
+  const containerRef = useRef(null)
+
+  const onMouseDown = (e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = containerRef.current?.offsetWidth || (typeof width === 'number' ? width : 300)
+
+    const onMouseMove = (e) => {
+      const newWidth = Math.max(60, startWidth + e.clientX - startX)
+      updateAttributes({ width: newWidth })
+    }
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
+
+  return (
+    <NodeViewWrapper style={{ display: 'inline-block', position: 'relative', lineHeight: 0 }}>
+      <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+        <img
+          src={src}
+          alt={alt || ''}
+          style={{ width: width ? `${width}px` : 'auto', maxWidth: '100%', display: 'block' }}
+          draggable={false}
+        />
+        {/* 오른쪽 하단 크기 조절 핸들 */}
+        <div
+          onMouseDown={onMouseDown}
+          style={{
+            position: 'absolute', bottom: 4, right: 4,
+            width: 14, height: 14,
+            background: '#3b82f6', borderRadius: 3,
+            cursor: 'nwse-resize', zIndex: 10,
+          }}
+        />
+      </div>
+    </NodeViewWrapper>
+  )
+}
+
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: { default: null, parseHTML: (el) => el.getAttribute('width') ? Number(el.getAttribute('width')) : null, renderHTML: (attrs) => attrs.width ? { width: attrs.width } : {} },
+    }
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageView)
+  },
+})
+
 function TiptapToolbar({ editor, onImageFile }) {
   if (!editor) return null
-
-  const insertTable = () => {
-    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-  }
+  const inTable = editor.isActive('table')
 
   const btnCls = (active) =>
     `px-2 py-1 rounded text-sm transition-colors cursor-pointer ${active ? 'bg-gray-200 font-semibold' : 'hover:bg-gray-100'}`
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 pb-2 mb-2">
-      <button type="button" onClick={onImageFile} className={btnCls(false)} title="사진">사진</button>
-      <button type="button" onClick={insertTable} className={btnCls(editor.isActive('table'))} title="표">표</button>
-      <button type="button" onClick={() => editor.chain().focus().setHorizontalRule().run()} className={btnCls(false)} title="구분선">—</button>
-      <button type="button" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnCls(editor.isActive('blockquote'))} title="인용구">"</button>
-      <div className="w-px h-5 bg-gray-300 mx-1" />
-      <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))}><b>B</b></button>
-      <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={btnCls(editor.isActive('italic'))}><i>I</i></button>
-      <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={btnCls(editor.isActive('underline'))}><u>U</u></button>
-      <button type="button" onClick={() => editor.chain().focus().toggleStrike().run()} className={btnCls(editor.isActive('strike'))}><s>S</s></button>
-      <div className="w-px h-5 bg-gray-300 mx-1" />
-      <button type="button" onClick={() => editor.chain().focus().undo().run()} className={btnCls(false)} disabled={!editor.can().undo()}>↺</button>
-      <button type="button" onClick={() => editor.chain().focus().redo().run()} className={btnCls(false)} disabled={!editor.can().redo()}>↻</button>
+    <div className="flex flex-col gap-1 border-b border-gray-200 pb-2 mb-2">
+      <div className="flex flex-wrap items-center gap-1">
+        <button type="button" onClick={onImageFile} className={btnCls(false)}>사진</button>
+        <button type="button" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} className={btnCls(inTable)}>표</button>
+        <button type="button" onClick={() => editor.chain().focus().setHorizontalRule().run()} className={btnCls(false)}>—</button>
+        <button type="button" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={btnCls(editor.isActive('blockquote'))}>❝</button>
+        <div className="w-px h-5 bg-gray-300 mx-1" />
+        <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={btnCls(editor.isActive('bold'))}><b>B</b></button>
+        <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={btnCls(editor.isActive('italic'))}><i>I</i></button>
+        <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={btnCls(editor.isActive('underline'))}><u>U</u></button>
+        <button type="button" onClick={() => editor.chain().focus().toggleStrike().run()} className={btnCls(editor.isActive('strike'))}><s>S</s></button>
+        <div className="w-px h-5 bg-gray-300 mx-1" />
+        <button type="button" onClick={() => editor.chain().focus().undo().run()} className={btnCls(false)} disabled={!editor.can().undo()}>↺</button>
+        <button type="button" onClick={() => editor.chain().focus().redo().run()} className={btnCls(false)} disabled={!editor.can().redo()}>↻</button>
+      </div>
+
+      {/* 표 안에 커서 있을 때 행/열 조작 버튼 */}
+      {inTable && (
+        <div className="flex flex-wrap items-center gap-1 pt-1">
+          <span className="text-xs text-gray-400 mr-1">표:</span>
+          <button type="button" onClick={() => editor.chain().focus().addRowBefore().run()} className={btnCls(false)} title="위에 행 추가">↑행+</button>
+          <button type="button" onClick={() => editor.chain().focus().addRowAfter().run()} className={btnCls(false)} title="아래에 행 추가">↓행+</button>
+          <button type="button" onClick={() => editor.chain().focus().deleteRow().run()} className="px-2 py-1 rounded text-sm transition-colors cursor-pointer hover:bg-red-100 text-red-500" title="행 삭제">행−</button>
+          <div className="w-px h-4 bg-gray-300 mx-0.5" />
+          <button type="button" onClick={() => editor.chain().focus().addColumnBefore().run()} className={btnCls(false)} title="왼쪽에 열 추가">←열+</button>
+          <button type="button" onClick={() => editor.chain().focus().addColumnAfter().run()} className={btnCls(false)} title="오른쪽에 열 추가">→열+</button>
+          <button type="button" onClick={() => editor.chain().focus().deleteColumn().run()} className="px-2 py-1 rounded text-sm transition-colors cursor-pointer hover:bg-red-100 text-red-500" title="열 삭제">열−</button>
+          <div className="w-px h-4 bg-gray-300 mx-0.5" />
+          <button type="button" onClick={() => editor.chain().focus().deleteTable().run()} className="px-2 py-1 rounded text-sm transition-colors cursor-pointer hover:bg-red-100 text-red-500" title="표 삭제">표 삭제</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -80,7 +153,7 @@ export default function NoticesPage() {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ bold: false, italic: false, strike: false, blockquote: false, horizontalRule: false }),
-      Bold, Italic, Underline, Strike, Image,
+      Bold, Italic, Underline, Strike, ResizableImage,
       Table.configure({ resizable: true }), TableRow, TableCell, TableHeader,
       Blockquote, HorizontalRule,
     ],
@@ -227,12 +300,17 @@ export default function NoticesPage() {
         }
         .tiptap-editor table {
           border-collapse: collapse;
+          table-layout: fixed;
           width: 100%;
         }
         .tiptap-editor td, .tiptap-editor th {
           border: 1px solid #d1d5db;
           padding: 6px 10px;
           min-width: 60px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 240px;
         }
         .tiptap-editor th {
           background: #f9fafb;
@@ -241,11 +319,21 @@ export default function NoticesPage() {
         .tiptap-editor .selectedCell {
           background: #eff6ff;
         }
+        .tiptap-editor .column-resize-handle {
+          background-color: #3b82f6;
+          bottom: -2px;
+          pointer-events: none;
+          position: absolute;
+          right: -2px;
+          top: 0;
+          width: 4px;
+        }
         .tiptap-editor p { margin: 0; }
         .tiptap-editor .ProseMirror { outline: none; min-height: 100%; }
+        .resize-cursor { cursor: col-resize; }
       `}</style>
 
-      {/* 좌측 패널 — 공지 목록 */}
+      {/* 좌측 패널 */}
       <div className="w-60 shrink-0 flex flex-col border border-gray-200 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <span className="font-semibold text-sm">공지 목록</span>
@@ -261,7 +349,10 @@ export default function NoticesPage() {
             <button
               key={n.id}
               onClick={() => selectNotice(n)}
-              className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${selected?.id === n.id ? 'bg-gray-100 font-semibold' : ''}`}
+              className={`w-full text-left px-4 py-3 border-b border-gray-100 transition-colors cursor-pointer
+                ${selected?.id === n.id
+                  ? 'bg-gray-100 font-semibold'
+                  : 'hover:bg-gray-50'}`}
             >
               <p className="text-sm truncate">{n.title}</p>
               <p className="text-xs text-gray-400 mt-0.5">{formatDate(n.created_at)}</p>
@@ -286,34 +377,17 @@ export default function NoticesPage() {
                 <p className="text-xs text-gray-400 mt-1">{formatDate(selected.created_at)}</p>
               </div>
               <div className="flex gap-2 shrink-0 ml-4">
-                <button
-                  onClick={startEdit}
-                  className="flex items-center gap-1 text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
-                >
-                  수정
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={loading}
-                  className="flex items-center gap-1 text-sm px-3 py-1.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 cursor-pointer"
-                >
+                <button onClick={startEdit} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">수정</button>
+                <button onClick={handleDelete} disabled={loading} className="text-sm px-3 py-1.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 cursor-pointer">
                   {deleteConfirm ? '확인' : '삭제'}
                 </button>
                 {deleteConfirm && (
-                  <button
-                    onClick={() => setDeleteConfirm(false)}
-                    className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
-                  >
-                    취소
-                  </button>
+                  <button onClick={() => setDeleteConfirm(false)} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">취소</button>
                 )}
               </div>
             </div>
 
-            <div
-              className="px-6 py-4 prose max-w-none flex-1 tiptap-editor"
-              dangerouslySetInnerHTML={{ __html: selected.content || '' }}
-            />
+            <div className="px-6 py-4 prose max-w-none flex-1 tiptap-editor" dangerouslySetInnerHTML={{ __html: selected.content || '' }} />
 
             {selected.events?.length > 0 && (
               <div className="px-6 py-4 border-t border-gray-100">
@@ -334,11 +408,7 @@ export default function NoticesPage() {
                 <p className="text-sm font-medium mb-2">첨부파일</p>
                 <div className="flex flex-wrap gap-2">
                   {selected.notice_files.map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => handleDownload(f)}
-                      className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 cursor-pointer"
-                    >
+                    <button key={f.id} onClick={() => handleDownload(f)} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
                       <span className="text-gray-400">📎</span>
                       <span>{f.file_name}</span>
                       <span className="text-gray-400 text-xs">({formatFileSize(f.file_size)})</span>
@@ -361,47 +431,23 @@ export default function NoticesPage() {
               className="text-lg font-semibold border-b border-gray-200 pb-2 outline-none w-full placeholder-gray-300"
             />
 
-            {/* 이미지 파일 input (숨김) */}
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              className="hidden"
-              onChange={handleImageFile}
-            />
+            <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={handleImageFile} />
 
             <div className="flex-1 flex flex-col border border-gray-200 rounded-xl p-3 min-h-0">
               <TiptapToolbar editor={editor} onImageFile={() => imageInputRef.current?.click()} />
-              {/* 에디터 영역 클릭 시 포커스 */}
               <div
                 className="flex-1 overflow-y-auto tiptap-editor cursor-text"
                 onClick={() => editor?.commands.focus('end')}
               >
-                <EditorContent
-                  editor={editor}
-                  className="h-full prose max-w-none"
-                />
+                <EditorContent editor={editor} className="h-full prose max-w-none" />
               </div>
             </div>
 
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm text-gray-600">파일 첨부</span>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-xs px-2 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
-                >
-                  내 PC
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.png,.jpg,.jpeg,.docx"
-                  className="hidden"
-                  onChange={(e) => addFiles(Array.from(e.target.files))}
-                />
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs px-2 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">내 PC</button>
+                <input ref={fileInputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.docx" className="hidden" onChange={(e) => addFiles(Array.from(e.target.files))} />
               </div>
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
@@ -414,13 +460,7 @@ export default function NoticesPage() {
                     {files.map((f, i) => (
                       <li key={i} className="flex items-center justify-between text-sm">
                         <span>📎 {f.name} ({formatFileSize(f.size)})</span>
-                        <button
-                          type="button"
-                          onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
-                          className="text-gray-400 hover:text-red-500 ml-2 cursor-pointer"
-                        >
-                          ✕
-                        </button>
+                        <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="text-gray-400 hover:text-red-500 ml-2 cursor-pointer">✕</button>
                       </li>
                     ))}
                   </ul>
@@ -433,21 +473,9 @@ export default function NoticesPage() {
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="flex justify-end gap-2">
-              <button
-                onClick={handleSave}
-                disabled={loading}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 disabled:opacity-50 cursor-pointer"
-              >
-                저장
-              </button>
+              <button onClick={handleSave} disabled={loading} className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 disabled:opacity-50 cursor-pointer">저장</button>
               {selected && (
-                <button
-                  onClick={handleDelete}
-                  disabled={loading}
-                  className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 disabled:opacity-50 cursor-pointer"
-                >
-                  삭제
-                </button>
+                <button onClick={handleDelete} disabled={loading} className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 disabled:opacity-50 cursor-pointer">삭제</button>
               )}
             </div>
           </div>
