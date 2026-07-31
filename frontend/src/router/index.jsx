@@ -5,6 +5,7 @@ import LandingPage from '@/pages/landing/LandingPage'
 import SetupPasswordPage from '@/pages/auth/SetupPasswordPage'
 import AppLayout from '@/pages/app/AppLayout'
 import PermissionRoute from '@/pages/app/PermissionRoute'
+import NoticesPage from '@/pages/app/notices/NoticesPage'
 
 function PrivateRoute({ children }) {
   const { user, isLoading } = useAuthStore()
@@ -61,7 +62,7 @@ const router = createBrowserRouter([
         path: 'notices',
         element: (
           <PermissionRoute perm="perm_notices">
-            <div>공지 관리</div>
+            <NoticesPage />
           </PermissionRoute>
         ),
       },
