@@ -99,7 +99,7 @@ export const memberService = {
 
   async getOfficers() {
     return query(() =>
-      supabase.from('members').select('*, roles(name, is_president)').not('role_id', 'is', null).order('created_at')
+      supabase.from('members').select('*, roles(name, is_president)').order('created_at')
     )
   },
 }
