@@ -5,6 +5,7 @@ import LandingPage from '@/pages/landing/LandingPage'
 import SetupPasswordPage from '@/pages/auth/SetupPasswordPage'
 import AppLayout from '@/pages/app/AppLayout'
 import PermissionRoute from '@/pages/app/PermissionRoute'
+import MembersPage from '@/pages/app/members/MembersPage'
 
 function PrivateRoute({ children }) {
   const { user, isLoading } = useAuthStore()
@@ -45,7 +46,7 @@ const router = createBrowserRouter([
         path: 'members',
         element: (
           <PermissionRoute perm="perm_members">
-            <div>회원 관리</div>
+            <MembersPage />
           </PermissionRoute>
         ),
       },
