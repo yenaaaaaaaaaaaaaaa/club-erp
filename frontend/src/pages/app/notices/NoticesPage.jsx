@@ -437,7 +437,7 @@ export default function NoticesPage() {
               <TiptapToolbar editor={editor} onImageFile={() => imageInputRef.current?.click()} />
               <div
                 className="flex-1 overflow-y-auto tiptap-editor cursor-text"
-                onClick={() => editor?.commands.focus('end')}
+                onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end') }}
               >
                 <EditorContent editor={editor} className="h-full prose max-w-none" />
               </div>
