@@ -170,23 +170,23 @@ function TableEdgeHandles({ editor, containerRef }) {
     return rows[rows.length - 1]?.querySelector('td, th') ?? null
   }
 
-  // 우측 핸들: 클릭 → 열 추가, ← 드래그 → 빈 마지막 열 삭제
+  // 우측 핸들: 클릭 → 열 추가, ← 길게 드래그 → 빈 마지막 열 연속 삭제
   const makeRightHandle = (tbl) => (e) => {
     e.preventDefault()
-    const startX = e.clientX
+    const STEP = 40
+    let lastX = e.clientX
     let dragged = false
-    let deleted = false
 
     const onMove = (e) => {
-      const delta = e.clientX - startX
-      if (!dragged && Math.abs(delta) > 8) dragged = true
-      // ← 드래그: 40px마다 마지막 빈 열 삭제
-      if (dragged && delta < -40 && !deleted) {
+      const delta = e.clientX - lastX
+      if (!dragged && Math.abs(e.clientX - lastX) > 8) dragged = true
+      if (dragged && delta <= -STEP) {
+        // ← 드래그: STEP마다 빈 마지막 열 삭제
         if (isLastColEmpty(tbl.el)) {
           const cell = getLastColCell(tbl.el)
           if (cell) { focusCell(cell); editor.chain().focus().deleteColumn().run() }
-          deleted = true
         }
+        lastX -= STEP
       }
     }
 
@@ -457,24 +457,23 @@ export default function NoticesPage() {
         }
         .tiptap-editor hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
         .tiptap-editor table {
-          border-collapse: collapse; width: 100%; margin: 12px 0;
+          border-collapse: collapse; width: calc(100% - 20px); margin: 12px 0;
           table-layout: fixed;
         }
         .tiptap-editor td, .tiptap-editor th {
           border: 1px solid #d1d5db; padding: 6px 10px; min-width: 40px;
           position: relative; word-break: break-word; white-space: normal;
-          vertical-align: top; overflow: hidden;
+          vertical-align: top; overflow: visible;
         }
         .tiptap-editor th { background: #f9fafb; font-weight: 600; }
         .tiptap-editor .selectedCell { background: #eff6ff; }
         .tiptap-editor .column-resize-handle {
-          background-color: #bfdbfe;
-          bottom: 0; position: absolute; right: -2px; top: 0; width: 4px;
-          z-index: 20; cursor: col-resize;
+          background-color: #93c5fd;
+          bottom: 0; position: absolute; right: -3px; top: 0; width: 6px;
+          z-index: 30; cursor: col-resize; border-radius: 2px;
         }
-        .tiptap-editor .column-resize-handle:hover,
-        .tiptap-editor .column-resize-handle:active {
-          background-color: #3b82f6;
+        .tiptap-editor .column-resize-handle:hover {
+          background-color: #2563eb;
         }
         .resize-cursor, .resize-cursor * { cursor: col-resize !important; }
         .tiptap-editor p { margin: 0; }
@@ -571,7 +570,7 @@ export default function NoticesPage() {
               <div
                 ref={editorContainerRef}
                 className="flex-1 overflow-y-auto tiptap-editor cursor-text"
-                style={{ position: 'relative' }}
+                style={{ position: 'relative', paddingRight: '32px' }}
                 onClick={e => { if (e.target === e.currentTarget) editor?.commands.focus('end') }}
               >
                 <EditorContent editor={editor} className="h-full prose max-w-none" />
