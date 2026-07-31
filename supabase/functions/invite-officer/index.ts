@@ -77,10 +77,16 @@ serve(async (req) => {
     }
 
     if (targetMember.user_id) {
-      return new Response(JSON.stringify({ error: '이미 연결된 계정입니다.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      // auth 유저가 실제로 존재하는지 확인 (삭제된 경우 재초대 허용)
+      const { data: authUser } = await supabase.auth.admin.getUserById(targetMember.user_id)
+      if (authUser?.user) {
+        return new Response(JSON.stringify({ error: '이미 연결된 계정입니다.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      // auth 유저가 없으면 user_id 초기화 후 재초대 진행
+      await supabase.from('members').update({ user_id: null }).eq('id', targetMember.id)
     }
 
     // SITE_URL 필수 처리 (로컬이 아닌 클라우드 배포 시 반드시 세팅해야 함)
