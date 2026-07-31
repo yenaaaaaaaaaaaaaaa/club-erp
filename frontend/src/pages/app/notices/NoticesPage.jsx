@@ -352,8 +352,10 @@ export default function NoticesPage() {
       Blockquote, HorizontalRule,
     ],
     content: '',
-    // editable은 useEffect로만 제어 — 여기서 mode를 참조하면 Tiptap이 에디터 재생성 → 콘텐츠 초기화
-    editable: false,
+    // true로 초기화해야 addProseMirrorPlugins()에서 columnResizing 플러그인이 등록됨
+    // (Table extension이 isEditable 체크를 플러그인 등록 시점에 수행)
+    // 실제 editable 상태는 아래 useEffect에서 mode에 따라 제어
+    editable: true,
   })
 
   useEffect(() => {
@@ -454,26 +456,25 @@ export default function NoticesPage() {
           margin: 8px 0; color: #6b7280; font-style: italic;
         }
         .tiptap-editor hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
-        .tiptap-editor table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+        .tiptap-editor table {
+          border-collapse: collapse; width: 100%; margin: 12px 0;
+          table-layout: fixed;
+        }
         .tiptap-editor td, .tiptap-editor th {
-          border: 1px solid #d1d5db; padding: 6px 10px; min-width: 60px;
+          border: 1px solid #d1d5db; padding: 6px 10px; min-width: 40px;
           position: relative; word-break: break-word; white-space: normal;
-          vertical-align: top; overflow: visible;
+          vertical-align: top; overflow: hidden;
         }
         .tiptap-editor th { background: #f9fafb; font-weight: 600; }
         .tiptap-editor .selectedCell { background: #eff6ff; }
         .tiptap-editor .column-resize-handle {
-          background-color: #93c5fd;
-          bottom: 0; position: absolute; right: -3px; top: 0; width: 6px; z-index: 20;
-          cursor: col-resize; border-radius: 3px; opacity: 0;
-          transition: opacity 0.15s;
+          background-color: #bfdbfe;
+          bottom: 0; position: absolute; right: -2px; top: 0; width: 4px;
+          z-index: 20; cursor: col-resize;
         }
-        .tiptap-editor td:hover .column-resize-handle,
-        .tiptap-editor th:hover .column-resize-handle {
-          opacity: 1;
-        }
-        .tiptap-editor .column-resize-handle:hover {
-          background-color: #3b82f6; opacity: 1;
+        .tiptap-editor .column-resize-handle:hover,
+        .tiptap-editor .column-resize-handle:active {
+          background-color: #3b82f6;
         }
         .resize-cursor, .resize-cursor * { cursor: col-resize !important; }
         .tiptap-editor p { margin: 0; }
