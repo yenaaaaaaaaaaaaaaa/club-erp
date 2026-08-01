@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import DOMPurify from 'dompurify'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Bold from '@tiptap/extension-bold'
@@ -9,11 +10,9 @@ import Image from '@tiptap/extension-image'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import Blockquote from '@tiptap/extension-blockquote'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
-import { noticeService } from '@/services/noticeService'
+import { noticeService, ALLOWED_TYPES, MAX_SIZE } from '@/services/noticeService'
 
-const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
-const MAX_SIZE = 50 * 1024 * 1024
 
 function formatDate(str) {
   if (!str) return ''
@@ -161,7 +160,7 @@ function TableOverlays({ editor, containerRef }) {
               break
             }
           }
-        } catch {}
+        } catch (e) { console.warn('col width update failed:', e) }
       })
     })
     view.dispatch(tr)
@@ -319,9 +318,6 @@ function TiptapToolbar({ editor, onImageFile }) {
         <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={btn(editor.isActive('italic'))}><i>I</i></button>
         <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={btn(editor.isActive('underline'))}><u>U</u></button>
         <button type="button" onClick={() => editor.chain().focus().toggleStrike().run()} className={btn(editor.isActive('strike'))}><s>S</s></button>
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-        <button type="button" onClick={() => editor.chain().focus().undo().run()} className={btn(false)} disabled={!editor.can().undo()}>↺</button>
-        <button type="button" onClick={() => editor.chain().focus().redo().run()} className={btn(false)} disabled={!editor.can().redo()}>↻</button>
       </div>
       {inTable && (
         <div className="flex items-center gap-1 pt-1 border-t border-gray-100">
@@ -344,6 +340,7 @@ export default function NoticesPage() {
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [removedFileIds, setRemovedFileIds] = useState([])
   const fileInputRef = useRef(null)
   const imageInputRef = useRef(null)
   const editorContainerRef = useRef(null)
@@ -377,26 +374,30 @@ export default function NoticesPage() {
   }, [mode, editor])
 
   const loadNotices = useCallback(async () => {
-    const data = await noticeService.getAll()
-    setNotices(data || [])
+    try {
+      const data = await noticeService.getAll()
+      setNotices(data || [])
+    } catch (err) { setError(err.message) }
   }, [])
 
   useEffect(() => { loadNotices() }, [loadNotices])
 
   const selectNotice = async (notice) => {
     setError(''); setFiles([])
-    const detail = await noticeService.getById(notice.id)
-    selectedRef.current = detail
-    setSelected(detail); setMode('view')
+    try {
+      const detail = await noticeService.getById(notice.id)
+      selectedRef.current = detail
+      setSelected(detail); setMode('view')
+    } catch (err) { setError(err.message) }
   }
 
   const startCreate = () => {
     selectedRef.current = null
-    setSelected(null); setTitle(''); setFiles([]); setError(''); setMode('edit')
+    setSelected(null); setTitle(''); setFiles([]); setRemovedFileIds([]); setError(''); setMode('edit')
   }
 
   const startEdit = () => {
-    setTitle(selected.title); setFiles([]); setError(''); setMode('edit')
+    setTitle(selected.title); setFiles([]); setRemovedFileIds([]); setError(''); setMode('edit')
     // content 로드는 mode가 'edit'으로 바뀔 때 useEffect가 처리 (setEditable 이후 보장)
   }
 
@@ -407,6 +408,7 @@ export default function NoticesPage() {
       const content = editor?.getHTML() || ''
       if (selected) {
         await noticeService.update(selected.id, { title: title.trim(), content })
+        if (removedFileIds.length > 0) await noticeService.removeFiles(removedFileIds)
         if (files.length > 0) await noticeService.uploadFiles(selected.id, files)
         const updated = await noticeService.getById(selected.id)
         selectedRef.current = updated; setSelected(updated)
@@ -420,7 +422,6 @@ export default function NoticesPage() {
   }
 
   const handleDelete = async () => {
-    if (!deleteConfirm) { setDeleteConfirm(true); return }
     setLoading(true)
     try {
       await noticeService.remove(selected.id)
@@ -451,11 +452,17 @@ export default function NoticesPage() {
   const addFiles = (incoming) => {
     setError('')
     const valid = []
+    const rejectedType = []
+    const rejectedSize = []
     for (const f of incoming) {
-      if (!ALLOWED_TYPES.includes(f.type)) { setError('pdf, png, jpg, docx만 첨부 가능합니다'); continue }
-      if (f.size > MAX_SIZE) { setError('파일 크기는 50MB 이하여야 합니다'); continue }
+      if (!ALLOWED_TYPES.includes(f.type)) { rejectedType.push(f.name); continue }
+      if (f.size > MAX_SIZE) { rejectedSize.push(f.name); continue }
       valid.push(f)
     }
+    const errors = []
+    if (rejectedType.length > 0) errors.push(`${rejectedType.join(', ')} — pdf, png, jpg, docx만 첨부 가능합니다`)
+    if (rejectedSize.length > 0) errors.push(`${rejectedSize.join(', ')} — 50MB 초과`)
+    if (errors.length > 0) setError(errors.join('\n'))
     setFiles(prev => [...prev, ...valid])
   }
 
@@ -466,6 +473,19 @@ export default function NoticesPage() {
 
   return (
     <div className="flex gap-4 h-full min-h-0">
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setDeleteConfirm(false)}>
+          <div className="bg-neutral-600 rounded-2xl shadow-xl px-8 py-6 flex flex-col items-center gap-4 min-w-[260px]" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-medium text-white">공지를 삭제하겠습니까?</p>
+            <div className="flex gap-3">
+              <button onClick={handleDelete} disabled={loading}
+                className="px-5 py-2 border border-red-400 text-red-400 text-sm rounded-xl hover:bg-red-900/30 disabled:opacity-50 cursor-pointer transition-colors">확인</button>
+              <button onClick={() => setDeleteConfirm(false)} disabled={loading}
+                className="px-5 py-2 border border-neutral-400 text-neutral-200 text-sm rounded-xl hover:bg-neutral-500 disabled:opacity-50 cursor-pointer transition-colors">취소</button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         .tiptap-editor blockquote {
           border-left: 3px solid #d1d5db; padding: 4px 12px;
@@ -521,20 +541,15 @@ export default function NoticesPage() {
               <div>
                 <h2 className="text-lg font-semibold">{selected.title}</h2>
                 <p className="text-xs text-gray-400 mt-1">{formatDate(selected.created_at)}</p>
+                {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
               </div>
               <div className="flex gap-2 shrink-0 ml-4">
                 <button onClick={startEdit} className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 cursor-pointer transition-colors">수정</button>
-                <button onClick={handleDelete} disabled={loading}
-                  className="text-sm px-3 py-1.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 active:bg-red-100 cursor-pointer transition-colors">
-                  {deleteConfirm ? '확인' : '삭제'}
-                </button>
-                {deleteConfirm && (
-                  <button onClick={() => setDeleteConfirm(false)}
-                    className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 cursor-pointer transition-colors">취소</button>
-                )}
+                <button onClick={() => setDeleteConfirm(true)} disabled={loading}
+                  className="text-sm px-3 py-1.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 active:bg-red-100 cursor-pointer transition-colors">삭제</button>
               </div>
             </div>
-            <div className="px-6 py-4 prose max-w-none flex-1 tiptap-editor" dangerouslySetInnerHTML={{ __html: selected.content || '' }} />
+            <div className="px-6 py-4 prose max-w-none flex-1 tiptap-editor" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selected.content || '') }} />
             {selected.events?.length > 0 && (
               <div className="px-6 py-4 border-t border-gray-100">
                 {selected.events.map(ev => (
@@ -596,6 +611,19 @@ export default function NoticesPage() {
                 <input ref={fileInputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.docx" className="hidden"
                   onChange={e => addFiles(Array.from(e.target.files))} />
               </div>
+              {/* 기존 첨부파일 */}
+              {selected?.notice_files?.filter(f => !removedFileIds.includes(f.id)).length > 0 && (
+                <ul className="space-y-1 mb-2">
+                  {selected.notice_files.filter(f => !removedFileIds.includes(f.id)).map(f => (
+                    <li key={f.id} className="flex items-center justify-between text-sm text-gray-600">
+                      <span>📎 {f.file_name} ({formatFileSize(f.file_size)})</span>
+                      <button type="button" onClick={() => setRemovedFileIds(prev => [...prev, f.id])}
+                        className="text-gray-400 hover:text-red-500 ml-2 cursor-pointer">✕</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* 새 파일 추가 */}
               <div onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
                 onDragLeave={() => setIsDragging(false)} onDrop={onDrop}
                 className={`border-2 border-dashed rounded-xl p-4 text-center text-sm text-gray-400 transition-colors ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}>
@@ -613,15 +641,13 @@ export default function NoticesPage() {
               </div>
             </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-red-500 whitespace-pre-line">{error}</p>}
 
             <div className="flex justify-end gap-2">
               <button onClick={handleSave} disabled={loading}
                 className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 active:bg-gray-900 disabled:opacity-50 cursor-pointer transition-colors">저장</button>
-              {selected && (
-                <button onClick={handleDelete} disabled={loading}
-                  className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 active:bg-red-100 disabled:opacity-50 cursor-pointer transition-colors">삭제</button>
-              )}
+              <button onClick={() => { setMode(selected ? 'view' : null); setFiles([]); setRemovedFileIds([]); setError('') }} disabled={loading}
+                className="px-4 py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 cursor-pointer transition-colors">취소</button>
             </div>
         </div>
       </div>
