@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { memberService } from '@/services/memberService'
 import * as XLSX from 'xlsx'
@@ -48,7 +47,6 @@ export default function MembersPage() {
   }, [filters.join_semester, filters.paid, debouncedSearch])
 
   useEffect(() => {
-    // eslint-disable-next-line
     loadMembers()
   }, [loadMembers])
 
@@ -68,10 +66,20 @@ export default function MembersPage() {
         const workbook = XLSX.read(data, { type: 'array' })
         const firstSheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[firstSheetName]
-        const rows = XLSX.utils.sheet_to_json(worksheet)
+        const rawRows = XLSX.utils.sheet_to_json(worksheet)
 
-        // API expects mapped names, ensure excel columns match DB or map them here.
-        // Assuming excel columns: name, student_id, email, phone, join_semester, etc.
+        const rows = rawRows.map(r => ({
+          name: r['이름'] || '',
+          student_id: String(r['학번'] ?? ''),
+          phone: r['전화번호'] || '',
+          join_semester: r['가입학기'] || '',
+          grade: r['학년'] ? Number(r['학년']) : null,
+          college: r['단과대'] || '',
+          department: r['학과'] || '',
+          join_type: r['가입경로'] || '',
+          paid: r['입금여부'] === '완료',
+        }))
+
         await memberService.upsertBulk(rows)
         alert('엑셀 업로드가 완료되었습니다.')
         loadMembers()
@@ -96,13 +104,12 @@ export default function MembersPage() {
     const exportData = members.map(m => ({
       '이름': m.name,
       '학번': m.student_id,
-      '이메일': m.email,
       '전화번호': m.phone || '',
       '가입학기': m.join_semester || '',
       '학년': m.grade || '',
       '단과대': m.college || '',
       '학과': m.department || '',
-      '가입경로': m.join_path || '',
+      '가입경로': m.join_type || '',
       '입금여부': m.paid ? '완료' : '미납',
       '역할': m.roles?.name || '일반'
     }))
@@ -111,10 +118,6 @@ export default function MembersPage() {
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Members')
     
-    // Auto-fit columns roughly
-    const maxWidths = exportData.map(row => Object.keys(row).map(key => Math.max(key.length, String(row[key]).length)))
-    // A bit more complex for precise autofit, but simple export is fine here.
-
     XLSX.writeFile(workbook, `동아리회원목록_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
@@ -128,6 +131,7 @@ export default function MembersPage() {
     } else {
       await memberService.update(modalState.member.id, formData)
     }
+    // 여기까지 왔으면 성공
     setModalState({ isOpen: false, mode: 'create', member: null })
     loadMembers()
   }
@@ -136,6 +140,14 @@ export default function MembersPage() {
     await memberService.remove(id)
     setModalState({ isOpen: false, mode: 'create', member: null })
     loadMembers()
+  }
+
+  // Generate dynamic semesters for filter
+  const currentYear = new Date().getFullYear()
+  const semesterOptions = []
+  for (let i = 0; i < 3; i++) {
+    const year = (currentYear + 1 - i).toString().slice(2)
+    semesterOptions.push(`${year}-2`, `${year}-1`)
   }
 
   return (
@@ -161,11 +173,9 @@ export default function MembersPage() {
             className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           >
             <option value="">모든 학기</option>
-            <option value="26-1">26-1</option>
-            <option value="25-2">25-2</option>
-            <option value="25-1">25-1</option>
-            <option value="24-2">24-2</option>
-            <option value="24-1">24-1</option>
+            {semesterOptions.map(sem => (
+              <option key={sem} value={sem}>{sem}</option>
+            ))}
           </select>
           <select
             name="paid"
@@ -180,7 +190,10 @@ export default function MembersPage() {
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row items-end md:items-center gap-3">
+          <div className="text-xs text-gray-500 hidden md:block">
+            엑셀 추출 파일 형식으로만 업로드 가능합니다
+          </div>
           <input
             type="file"
             accept=".xlsx, .xls"
@@ -188,24 +201,26 @@ export default function MembersPage() {
             ref={fileInputRef}
             onChange={handleExcelUpload}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            엑셀 업로드
-          </button>
-          <button
-            onClick={handleExcelExport}
-            className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors shadow-sm"
-          >
-            엑셀 추출
-          </button>
-          <button
-            onClick={() => openModal('create')}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20 ml-2"
-          >
-            + 회원 등록
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              엑셀 업로드
+            </button>
+            <button
+              onClick={handleExcelExport}
+              className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors shadow-sm"
+            >
+              엑셀 추출
+            </button>
+            <button
+              onClick={() => openModal('create')}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20 ml-2"
+            >
+              + 회원 등록
+            </button>
+          </div>
         </div>
       </div>
 

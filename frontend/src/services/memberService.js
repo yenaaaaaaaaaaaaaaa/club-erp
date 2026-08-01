@@ -24,7 +24,7 @@ export const memberService = {
         q = q.eq('join_semester', filters.join_semester)
       }
       if (filters.paid !== undefined && filters.paid !== '') {
-        q = q.eq('paid', filters.paid)
+        q = q.eq('paid', filters.paid === 'true')
       }
       return q
     })
@@ -45,7 +45,6 @@ export const memberService = {
     } catch (err) {
       if (err.code === '23505') {
         if (err.message?.includes('student_id')) throw new Error('이미 등록된 학번입니다')
-        if (err.message?.includes('email')) throw new Error('이미 등록된 이메일입니다')
       }
       throw err
     }
@@ -60,7 +59,6 @@ export const memberService = {
     } catch (err) {
       if (err.code === '23505') {
         if (err.message?.includes('student_id')) throw new Error('이미 등록된 학번입니다')
-        if (err.message?.includes('email')) throw new Error('이미 등록된 이메일입니다')
       }
       throw err
     }
@@ -77,8 +75,8 @@ export const memberService = {
       throw new Error('올바른 엑셀 형식이 아닙니다. 템플릿을 확인하세요')
     }
     rows.forEach((row, i) => {
-      if (!row.name?.trim() || !row.student_id?.trim() || !row.email?.trim()) {
-        throw new Error(`${i + 1}번째 행: 이름, 학번, 이메일은 필수 입력 항목입니다`)
+      if (!row.name?.trim() || !row.student_id?.trim()) {
+        throw new Error(`${i + 1}번째 행: 이름과 학번은 필수 입력 항목입니다`)
       }
     })
     const safeRows = rows.map(({ user_id, role_id, ...rest }) => rest)
@@ -89,9 +87,6 @@ export const memberService = {
     } catch (err) {
       if (err.message?.includes('cannot affect row a second time')) {
         throw new Error('엑셀 내 중복된 학번이 있습니다. 확인 후 다시 시도해주세요')
-      }
-      if (err.code === '23505' && err.message?.includes('email')) {
-        throw new Error('이미 등록된 이메일과 충돌이 발생했습니다')
       }
       throw err
     }

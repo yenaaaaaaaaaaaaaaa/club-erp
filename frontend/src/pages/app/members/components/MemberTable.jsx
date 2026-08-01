@@ -16,7 +16,6 @@ export default function MemberTable({ members, onRowClick }) {
           <tr>
             <th className="px-6 py-3">이름</th>
             <th className="px-6 py-3">학번</th>
-            <th className="px-6 py-3">이메일</th>
             <th className="px-6 py-3">전화번호</th>
             <th className="px-6 py-3">가입학기</th>
             <th className="px-6 py-3">학과</th>
@@ -36,12 +35,11 @@ export default function MemberTable({ members, onRowClick }) {
             >
               <td className="px-6 py-4 font-medium text-gray-900">{member.name}</td>
               <td className="px-6 py-4">{member.student_id}</td>
-              <td className="px-6 py-4">{member.email}</td>
               <td className="px-6 py-4">{member.phone || '-'}</td>
               <td className="px-6 py-4">{member.join_semester || '-'}</td>
               <td className="px-6 py-4">{member.department || '-'}</td>
               <td className="px-6 py-4">{member.college || '-'}</td>
-              <td className="px-6 py-4">{member.join_path || '-'}</td>
+              <td className="px-6 py-4">{member.join_type || '-'}</td>
               <td className="px-6 py-4">{member.grade ? `${member.grade}학년` : '-'}</td>
               <td className="px-6 py-4">
                 {member.paid ? (

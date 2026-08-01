@@ -1,38 +1,35 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from 'react'
 
 export default function MemberModal({ isOpen, onClose, member, mode, onSave, onDelete }) {
   const [formData, setFormData] = useState({
     name: '',
     student_id: '',
-    email: '',
     phone: '',
     join_semester: '',
     department: '',
     college: '',
-    join_path: '',
+    join_type: '',
     grade: '',
     paid: false
   })
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isEditMode, setIsEditMode] = useState(mode === 'create')
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line
       setError(null)
+      setShowConfirm(false)
       if (mode === 'create') {
-        // eslint-disable-next-line
         setFormData({
           name: '',
           student_id: '',
-          email: '',
           phone: '',
           join_semester: '',
           department: '',
           college: '',
-          join_path: '',
+          join_type: '',
           grade: '',
           paid: false
         })
@@ -41,12 +38,11 @@ export default function MemberModal({ isOpen, onClose, member, mode, onSave, onD
         setFormData({
           name: member.name || '',
           student_id: member.student_id || '',
-          email: member.email || '',
           phone: member.phone || '',
           join_semester: member.join_semester || '',
           department: member.department || '',
           college: member.college || '',
-          join_path: member.join_path || '',
+          join_type: member.join_type || '',
           grade: member.grade || '',
           paid: member.paid || false
         })
@@ -79,12 +75,10 @@ export default function MemberModal({ isOpen, onClose, member, mode, onSave, onD
   }
 
   const handleDelete = async () => {
-    if (window.confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      try {
-        await onDelete(member.id)
-      } catch (err) {
-        alert(err.message)
-      }
+    try {
+      await onDelete(member.id)
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -137,20 +131,6 @@ export default function MemberModal({ isOpen, onClose, member, mode, onSave, onD
                   type="text"
                   name="student_id"
                   value={formData.student_id}
-                  onChange={handleChange}
-                  readOnly={!isEditMode}
-                  required
-                  className={inputClass}
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">이메일 *</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
                   onChange={handleChange}
                   readOnly={!isEditMode}
                   required
@@ -226,13 +206,13 @@ export default function MemberModal({ isOpen, onClose, member, mode, onSave, onD
                 />
               </div>
 
-              {/* Join Path */}
+              {/* Join Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">가입경로</label>
                 <input
                   type="text"
-                  name="join_path"
-                  value={formData.join_path}
+                  name="join_type"
+                  value={formData.join_type}
                   onChange={handleChange}
                   readOnly={!isEditMode}
                   className={inputClass}
@@ -261,20 +241,43 @@ export default function MemberModal({ isOpen, onClose, member, mode, onSave, onD
         <div className="flex items-center justify-end px-6 py-4 border-t border-gray-800 bg-gray-900/50 rounded-b-xl gap-3">
           {mode === 'view' && !isEditMode && (
             <>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="px-4 py-2 text-sm font-medium text-red-400 hover:text-white hover:bg-red-600 rounded-lg transition-colors"
-              >
-                삭제
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsEditMode(true)}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-lg shadow-blue-500/20"
-              >
-                수정하기
-              </button>
+              {showConfirm ? (
+                <div className="flex items-center gap-3 mr-auto">
+                  <span className="text-sm text-red-400 font-medium">정말 삭제하시겠습니까?</span>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                  >
+                    삭제 확인
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(false)}
+                    className="px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+                  >
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(true)}
+                  className="px-4 py-2 text-sm font-medium text-red-400 hover:text-white hover:bg-red-600 rounded-lg transition-colors mr-auto"
+                >
+                  삭제
+                </button>
+              )}
+              
+              {!showConfirm && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditMode(true)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+                >
+                  수정하기
+                </button>
+              )}
             </>
           )}
 
