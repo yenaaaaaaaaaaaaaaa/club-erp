@@ -84,6 +84,10 @@ function ResizableImageView({ node, updateAttributes }) {
 }
 
 const ResizableImage = Image.extend({
+  // allowBase64 기본값이 false라 data: URL을 parseHTML에서 제외함 → 직접 오버라이드
+  parseHTML() {
+    return [{ tag: 'img[src]' }]
+  },
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -343,6 +347,7 @@ export default function NoticesPage() {
   const fileInputRef = useRef(null)
   const imageInputRef = useRef(null)
   const editorContainerRef = useRef(null)
+  const selectedRef = useRef(null)
 
   // extensions를 memoize — 매 render마다 새 배열이면 compareOptions가 false → setOptions 반복 호출
   const extensions = useMemo(() => [
@@ -360,8 +365,16 @@ export default function NoticesPage() {
   })
 
   useEffect(() => {
-    if (editor) editor.setEditable(mode === 'edit')
-  }, [editor, mode])
+    if (!editor) return
+    editor.setEditable(mode === 'edit')
+    if (mode !== 'edit') return
+    // display:none → flex 전환 후 브라우저가 레이아웃을 완료한 뒤 setContent
+    // (NodeViewWrapper가 실제 DOM에 붙기 전에 setContent하면 React NodeView가 이미지를 렌더링 못함)
+    const rafId = requestAnimationFrame(() => {
+      editor.commands.setContent(selectedRef.current?.content || '')
+    })
+    return () => cancelAnimationFrame(rafId)
+  }, [mode, editor])
 
   const loadNotices = useCallback(async () => {
     const data = await noticeService.getAll()
@@ -373,21 +386,18 @@ export default function NoticesPage() {
   const selectNotice = async (notice) => {
     setError(''); setFiles([])
     const detail = await noticeService.getById(notice.id)
+    selectedRef.current = detail
     setSelected(detail); setMode('view')
-    editor?.commands.setContent(detail.content || '')
   }
 
   const startCreate = () => {
+    selectedRef.current = null
     setSelected(null); setTitle(''); setFiles([]); setError(''); setMode('edit')
-    editor?.commands.setContent('')
   }
 
   const startEdit = () => {
-    const content = selected.content || ''
     setTitle(selected.title); setFiles([]); setError(''); setMode('edit')
-    // setMode 후 editor.setEditable(true)가 useEffect에서 실행된 다음에 setContent 호출
-    // (editable=false 상태에서 setContent가 무시되는 문제 방지)
-    setTimeout(() => editor?.commands.setContent(content), 0)
+    // content 로드는 mode가 'edit'으로 바뀔 때 useEffect가 처리 (setEditable 이후 보장)
   }
 
   const handleSave = async () => {
@@ -398,9 +408,11 @@ export default function NoticesPage() {
       if (selected) {
         await noticeService.update(selected.id, { title: title.trim(), content })
         if (files.length > 0) await noticeService.uploadFiles(selected.id, files)
-        setSelected(await noticeService.getById(selected.id))
+        const updated = await noticeService.getById(selected.id)
+        selectedRef.current = updated; setSelected(updated)
       } else {
-        setSelected(await noticeService.create({ title: title.trim(), content, files }))
+        const created = await noticeService.create({ title: title.trim(), content, files })
+        selectedRef.current = created; setSelected(created)
       }
       await loadNotices(); setMode('view'); setFiles([])
     } catch (err) { setError(err.message) }
@@ -554,8 +566,7 @@ export default function NoticesPage() {
           </div>
         )}
 
-        {mode === 'edit' && (
-          <div className="flex flex-col h-full px-6 py-4 gap-4">
+        <div style={{ display: mode === 'edit' ? 'flex' : 'none' }} className="flex-col h-full px-6 py-4 gap-4">
             <input type="text" placeholder="제목을 입력하세요" value={title}
               onChange={e => setTitle(e.target.value)}
               className="text-lg font-semibold border-b border-gray-200 pb-2 outline-none w-full placeholder-gray-300" />
@@ -573,9 +584,7 @@ export default function NoticesPage() {
               >
                 <EditorContent editor={editor} className="h-full prose max-w-none" />
                 {/* 표 오버레이 핸들 */}
-                {mode === 'edit' && (
-                  <TableOverlays editor={editor} containerRef={editorContainerRef} />
-                )}
+                <TableOverlays editor={editor} containerRef={editorContainerRef} />
               </div>
             </div>
 
@@ -614,8 +623,7 @@ export default function NoticesPage() {
                   className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 active:bg-red-100 disabled:opacity-50 cursor-pointer transition-colors">삭제</button>
               )}
             </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )

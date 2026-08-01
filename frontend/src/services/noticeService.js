@@ -90,7 +90,8 @@ export const noticeService = {
   async uploadFiles(noticeId, files) {
     for (const file of files) {
       validateFile(file)
-      const path = `${noticeId}/${Date.now()}_${file.name}`
+      const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'bin'
+      const path = `${noticeId}/${Date.now()}.${ext}`
       await storageService.upload(BUCKET, path, file)
       await query(() =>
         supabase.from('notice_files').insert({
