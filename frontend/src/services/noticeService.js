@@ -3,13 +3,13 @@ import { query } from '@/lib/supabaseQuery'
 import { storageService } from '@/services/storageService'
 
 const BUCKET = 'notice-files'
-const ALLOWED_TYPES = [
+export const ALLOWED_TYPES = [
   'application/pdf',
   'image/png',
   'image/jpeg',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]
-const MAX_SIZE = 50 * 1024 * 1024 // 50MB
+export const MAX_SIZE = 50 * 1024 * 1024 // 50MB
 
 function validateFile(file) {
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -45,7 +45,13 @@ export const noticeService = {
     )
 
     if (files.length > 0) {
-      await noticeService.uploadFiles(notice.id, files)
+      try {
+        await noticeService.uploadFiles(notice.id, files)
+      } catch (err) {
+        // 파일 업로드 실패 시 생성된 공지 롤백
+        await query(() => supabase.from('notices').delete().eq('id', notice.id)).catch(() => {})
+        throw err
+      }
     }
 
     return noticeService.getById(notice.id)
@@ -90,7 +96,8 @@ export const noticeService = {
   async uploadFiles(noticeId, files) {
     for (const file of files) {
       validateFile(file)
-      const path = `${noticeId}/${Date.now()}_${file.name}`
+      const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'bin'
+      const path = `${noticeId}/${Date.now()}.${ext}`
       await storageService.upload(BUCKET, path, file)
       await query(() =>
         supabase.from('notice_files').insert({
@@ -99,6 +106,20 @@ export const noticeService = {
           file_path: path,
           file_size: file.size,
         })
+      )
+    }
+  },
+
+  async removeFiles(fileIds) {
+    const rows = await query(() =>
+      supabase.from('notice_files').select('file_path').in('id', fileIds)
+    )
+    await query(() =>
+      supabase.from('notice_files').delete().in('id', fileIds)
+    )
+    if (rows?.length > 0) {
+      storageService.remove(BUCKET, rows.map(r => r.file_path)).catch(err =>
+        console.error('storage 파일 삭제 실패:', err)
       )
     }
   },
