@@ -5,6 +5,7 @@ import LandingPage from '@/pages/landing/LandingPage'
 import SetupPasswordPage from '@/pages/auth/SetupPasswordPage'
 import AppLayout from '@/pages/app/AppLayout'
 import PermissionRoute from '@/pages/app/PermissionRoute'
+import NoticesPage from '@/pages/app/notices/NoticesPage'
 import PermissionsPage from '@/pages/app/settings/PermissionsPage'
 
 function PrivateRoute({ children }) {
@@ -62,7 +63,7 @@ const router = createBrowserRouter([
         path: 'notices',
         element: (
           <PermissionRoute perm="perm_notices">
-            <div>공지 관리</div>
+            <NoticesPage />
           </PermissionRoute>
         ),
       },
