@@ -135,11 +135,19 @@ function TableOverlays({ editor, containerRef }) {
 
   useEffect(() => {
     if (!editor) return
-    const onUpdate = () => setTimeout(buildTables, 30)
+    let rafId = null
+    const onUpdate = () => {
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(buildTables)
+    }
     editor.on('update', onUpdate)
     editor.on('selectionUpdate', onUpdate)
     buildTables()
-    return () => { editor.off('update', onUpdate); editor.off('selectionUpdate', onUpdate) }
+    return () => {
+      editor.off('update', onUpdate)
+      editor.off('selectionUpdate', onUpdate)
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [editor, buildTables])
 
   // ── 열 너비 리사이즈 ────────────────────────────────────────
