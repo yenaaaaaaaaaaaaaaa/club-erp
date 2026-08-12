@@ -62,33 +62,6 @@ serve(async (req) => {
       })
     }
 
-    // [의견 반영] members 테이블에 초대할 이메일이 등록되어 있는지 사전 검증
-    const { data: targetMember, error: targetError } = await supabase
-      .from('members')
-      .select('id, user_id')
-      .eq('email', email)
-      .single()
-
-    if (targetError || !targetMember) {
-      return new Response(JSON.stringify({ error: '임원 정보가 등록되지 않은 이메일입니다. 먼저 임원을 등록해주세요.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    if (targetMember.user_id) {
-      // auth 유저가 실제로 존재하는지 확인 (삭제된 경우 재초대 허용)
-      const { data: authUser } = await supabase.auth.admin.getUserById(targetMember.user_id)
-      if (authUser?.user) {
-        return new Response(JSON.stringify({ error: '이미 연결된 계정입니다.' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-      // auth 유저가 없으면 user_id 초기화 후 재초대 진행
-      await supabase.from('members').update({ user_id: null }).eq('id', targetMember.id)
-    }
-
     // SITE_URL 필수 처리 (로컬이 아닌 클라우드 배포 시 반드시 세팅해야 함)
     const siteUrl = Deno.env.get('SITE_URL')
     if (!siteUrl) {
