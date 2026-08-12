@@ -70,7 +70,7 @@ export const roleService = {
     let member
     try {
       member = await query(() =>
-        supabase.from('members').insert({ name, student_id, email, role_id }).select('id').single()
+        supabase.from('members').insert({ name, student_id, role_id }).select('id').single()
       )
     } catch (err) {
       if (err.code === '23505') {
