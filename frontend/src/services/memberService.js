@@ -16,7 +16,7 @@ export const memberService = {
 
   async getAll(filters = {}) {
     return query(() => {
-      let q = supabase.from('members').select('*, roles(name)').order('created_at')
+      let q = supabase.from('members').select('*, roles(name, is_president)').order('created_at')
       if (filters.search) {
         q = q.or(`name.ilike.%${filters.search}%,student_id.ilike.%${filters.search}%`)
       }
