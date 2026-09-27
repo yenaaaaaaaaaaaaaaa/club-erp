@@ -97,19 +97,28 @@ export const activityService = {
     )
   },
 
-  async updateNote({ id, activity_id, member_id, attended = false, note }) {
-    // getAttendances()가 반환하는 미체크 멤버의 기본 attendance 객체에는 id가 없다.
-    // id 없이 .eq('id', id)를 호출하면 조건 없는 전체 행 업데이트로 이어지므로,
-    // 이 경우엔 새 출석 행을 생성하는 upsertAttendance()로 위임한다.
-    if (!id) {
-      return activityService.upsertAttendance({ activity_id, member_id, attended, note })
+  async updateNote({ id, activity_id, member_id, note }) {
+    // 비고 저장은 출석 상태를 변경하지 않는다. 그래서 attended는 인자로 받지 않는다.
+    // getAttendances()가 반환하는 미체크 멤버의 기본 attendance 객체에는 id가 없으므로
+    // id 유무에 따라 경로를 나눈다.
+    if (id) {
+      return query(() =>
+        supabase
+          .from('activity_attendances')
+          .update({ note })
+          .eq('id', id)
+          .select()
+          .single()
+      )
     }
 
+    // payload에 attended를 넣지 않으면
+    //  - 신규 INSERT: 컬럼 DEFAULT(false)가 적용된다
+    //  - 이미 행이 있는 경우: ON CONFLICT DO UPDATE가 note만 덮어쓰므로 기존 출석 상태가 유지된다
     return query(() =>
       supabase
         .from('activity_attendances')
-        .update({ note })
-        .eq('id', id)
+        .upsert({ activity_id, member_id, note }, { onConflict: 'activity_id,member_id' })
         .select()
         .single()
     )
