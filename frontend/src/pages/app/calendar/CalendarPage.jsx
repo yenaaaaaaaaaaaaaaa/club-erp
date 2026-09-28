@@ -95,9 +95,9 @@ export default function CalendarPage() {
         .club-calendar .fc-daygrid-day-number { font-size: 14px; color: #1f2937; padding: 0; }
         .club-calendar .fc-day-sun .fc-daygrid-day-number { color: #dc2626; }
         .club-calendar .fc-day-today .fc-daygrid-day-number {
-          min-width: 24px; height: 24px; margin: -3px 0 0 -6px; padding: 0 6px; border-radius: 9999px;
+          width: 26px; height: 26px; margin: -4px 0 0 -7px; border-radius: 50%;
           display: inline-flex; align-items: center; justify-content: center;
-          background: #1f2937; color: #fff; font-weight: 600;
+          background: rgba(0, 0, 0, 0.22); color: #111827;
         }
         .club-calendar .fc-day-disabled { background: #f9fafb; cursor: default; }
         .club-calendar .fc-daygrid-event { margin: 2px 6px 0; border-radius: 6px; padding: 2px 6px; font-size: 12px; cursor: pointer; }
