@@ -80,7 +80,7 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col gap-6">
       <style>{`
-        .club-calendar .fc { --fc-border-color: #d1d5db; --fc-today-bg-color: #f9fafb; }
+        .club-calendar .fc { --fc-border-color: #d1d5db; --fc-today-bg-color: transparent; }
         .club-calendar .fc-theme-standard .fc-scrollgrid { border: 0; }
         .club-calendar .fc-scrollgrid-section > * { border-right: 0; border-bottom: 0; }
         .club-calendar .fc-col-header-cell:first-child, .club-calendar .fc-daygrid-day:first-child { border-left: 0; }
@@ -94,6 +94,11 @@ export default function CalendarPage() {
         .club-calendar .fc-daygrid-day-top { flex-direction: row; padding: 6px 8px 2px; }
         .club-calendar .fc-daygrid-day-number { font-size: 14px; color: #1f2937; padding: 0; }
         .club-calendar .fc-day-sun .fc-daygrid-day-number { color: #dc2626; }
+        .club-calendar .fc-day-today .fc-daygrid-day-number {
+          min-width: 24px; height: 24px; margin: -3px 0 0 -6px; padding: 0 6px; border-radius: 9999px;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: #1f2937; color: #fff; font-weight: 600;
+        }
         .club-calendar .fc-day-disabled { background: #f9fafb; cursor: default; }
         .club-calendar .fc-daygrid-event { margin: 2px 6px 0; border-radius: 6px; padding: 2px 6px; font-size: 12px; cursor: pointer; }
         .club-calendar .fc-event-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
