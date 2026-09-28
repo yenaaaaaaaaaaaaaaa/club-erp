@@ -7,6 +7,7 @@ import AppLayout from '@/pages/app/AppLayout'
 import PermissionRoute from '@/pages/app/PermissionRoute'
 import MembersPage from '@/pages/app/members/MembersPage'
 import NoticesPage from '@/pages/app/notices/NoticesPage'
+import CalendarPage from '@/pages/app/calendar/CalendarPage'
 import PermissionsPage from '@/pages/app/settings/PermissionsPage'
 
 function PrivateRoute({ children }) {
@@ -72,7 +73,7 @@ const router = createBrowserRouter([
         path: 'calendar',
         element: (
           <PermissionRoute perm="perm_calendar">
-            <div>캘린더</div>
+            <CalendarPage />
           </PermissionRoute>
         ),
       },
