@@ -97,6 +97,8 @@ export default function CalendarPage() {
         .club-calendar .fc-day-disabled { background: #f9fafb; cursor: default; }
         .club-calendar .fc-daygrid-event { margin: 2px 6px 0; border-radius: 6px; padding: 2px 6px; font-size: 12px; cursor: pointer; }
         .club-calendar .fc-event-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+        .club-calendar .fc-event-title.is-continued { visibility: hidden; }
+        .club-calendar .fc-popover .fc-event-title.is-continued { visibility: visible; }
       `}</style>
 
       <div className="flex items-center justify-center gap-16 pt-2">
@@ -139,8 +141,8 @@ export default function CalendarPage() {
           dayCellContent={(arg) => arg.date.getDate()}
           events={calendarEvents}
           eventContent={(arg) => (
-            // 주를 넘어가는 일정은 주마다 조각이 나뉘므로 시작 조각에만 제목을 표시한다.
-            <div className="fc-event-title">{arg.isStart ? arg.event.title : '\u00a0'}</div>
+            // 주를 넘어가는 일정은 주마다 조각이 나뉘므로 시작 조각에만 제목을 표시한다(+더보기 팝오버에서는 항상 표시).
+            <div className={`fc-event-title${arg.isStart ? '' : ' is-continued'}`}>{arg.event.title}</div>
           )}
           eventBackgroundColor="#e5e7eb"
           eventBorderColor="#e5e7eb"
