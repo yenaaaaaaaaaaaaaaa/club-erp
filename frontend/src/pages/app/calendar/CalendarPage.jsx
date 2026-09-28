@@ -102,8 +102,11 @@ export default function CalendarPage() {
         .club-calendar .fc-day-disabled { background: #f9fafb; cursor: default; }
         .club-calendar .fc-daygrid-event { margin: 2px 6px 0; border-radius: 6px; padding: 2px 6px; font-size: 12px; cursor: pointer; }
         .club-calendar .fc-event-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
-        .club-calendar .fc-event-title.is-continued { visibility: hidden; }
-        .club-calendar .fc-popover .fc-event-title.is-continued { visibility: visible; }
+        .club-calendar .club-event { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .club-calendar .club-event-bar { flex-shrink: 0; width: 3px; height: 12px; border-radius: 2px; background: #6b7280; }
+        .club-calendar .club-event .fc-event-title { white-space: nowrap; }
+        .club-calendar .is-continued { visibility: hidden; }
+        .club-calendar .fc-popover .is-continued { visibility: visible; }
       `}</style>
 
       <div className="flex items-center justify-center gap-16 pt-2">
@@ -147,7 +150,10 @@ export default function CalendarPage() {
           events={calendarEvents}
           eventContent={(arg) => (
             // 주를 넘어가는 일정은 주마다 조각이 나뉘므로 시작 조각에만 제목을 표시한다(+더보기 팝오버에서는 항상 표시).
-            <div className={`fc-event-title${arg.isStart ? '' : ' is-continued'}`}>{arg.event.title}</div>
+            <div className={`club-event${arg.isStart ? '' : ' is-continued'}`}>
+              <span className="club-event-bar" />
+              <span className="fc-event-title">{arg.event.title}</span>
+            </div>
           )}
           eventBackgroundColor="#e5e7eb"
           eventBorderColor="#e5e7eb"
