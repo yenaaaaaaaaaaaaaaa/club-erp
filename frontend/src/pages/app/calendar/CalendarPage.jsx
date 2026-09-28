@@ -191,7 +191,7 @@ function EventFormModal({ event, date, notices, onClose, onSaved }) {
       notice_id: event.notice_id ?? '',
       content: event.content ?? '',
     }
-    : { ...EMPTY_FORM, start_date: date ?? '' })
+    : { ...EMPTY_FORM, start_date: date ?? '', end_date: date ?? '' })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
