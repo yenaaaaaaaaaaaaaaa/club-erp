@@ -138,6 +138,10 @@ export default function CalendarPage() {
           dayHeaderFormat={{ weekday: 'short' }}
           dayCellContent={(arg) => arg.date.getDate()}
           events={calendarEvents}
+          eventContent={(arg) => (
+            // 주를 넘어가는 일정은 주마다 조각이 나뉘므로 시작 조각에만 제목을 표시한다.
+            <div className="fc-event-title">{arg.isStart ? arg.event.title : '\u00a0'}</div>
+          )}
           eventBackgroundColor="#e5e7eb"
           eventBorderColor="#e5e7eb"
           eventTextColor="#1f2937"
